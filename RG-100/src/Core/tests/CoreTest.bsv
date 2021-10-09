@@ -4,7 +4,7 @@ import Core::*;
 module mkCoreTest(Empty);
     Core core <- mkCore;
 
-    rule always;
+    rule test;
         $display("mkCoreTest running...");
         $finish();
     endrule
