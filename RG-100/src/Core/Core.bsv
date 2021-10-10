@@ -4,10 +4,15 @@ import Instruction::*;
 import InstructionDecoder::*;
 import MemoryController::*;
 import RegisterFile::*;
+import TileLink::*;
 
+import GetPut::*;
+import ClientServer::*;
 import FIFOF::*;
 
 interface Core;
+    interface TileLinkADClient32 instructionBusClient;
+//    interface CoreToCacheClient dataBusClient;
 endinterface
 
 // typedef enum {
@@ -32,10 +37,10 @@ module mkCore(Core);
     MemoryController            memoryController <- mkMemoryController();
 
     //
-    // Fetch
+    // Instruction FIFO
     //
-    FIFOF#(Word)                instructionFifo <- mkFIFOF;  // fetch output
-    Reg#(Word)                  fetchPC <- mkReg(0);
+    FIFO#(TileLinkChannelARequest32) instructionFIFORequests <- mkFIFO;
+    FIFO#(TileLinkChannelDResponse32) instructionFIFOResponses <- mkFIFO;
 
     //
     // Decode
@@ -78,6 +83,24 @@ module mkCore(Core);
     //    updateState(e2m, pc, registers, memoryController);
     //    state <= Fetch;
     // endrule
+
+    interface Client instructionBusClient;
+        interface Put put;
+            method Action put(a);
+                instructionFifoRequests.enq(a);
+            endmethod
+        endinterface
+        interface Get response;
+            method ActionValue#(TileLinkChannelDResponse32) get;
+                instructionFifoResponses.deq;
+                return instructionFifoResponses.first;
+            endmethod
+        endinterface
+    endinterface
+
+    // interface CoreToCacheClient dataBusClient;
+    // endinterface
+
 endmodule
 
 function ExecutedInstruction executeDecodedInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word r1, Word r2);

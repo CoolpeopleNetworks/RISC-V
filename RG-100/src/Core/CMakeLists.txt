@@ -8,6 +8,7 @@ set(SOURCE_FILES
     InstructionDecoder.bsv
     MemoryController.bsv
     RegisterFile.bsv
+    TileLink.bsv
 )
 
 add_bluespec_simulation(mkCoreTest
