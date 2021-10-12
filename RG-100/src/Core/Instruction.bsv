@@ -81,12 +81,28 @@ typedef struct {
 } ALUInstruction deriving(Bits, Eq);
 
 //
-// JAL
+// AUIPCInstruction
+//
+typedef struct {
+    RegisterIndex destination;
+    Word effectiveAddress;
+} AUIPCInstruction deriving(Bits, Eq);
+
+//
+// JALInstruction
 //
 typedef struct {
     RegisterIndex destination;
     Bit#(21) offset;    // NOTE: always two byte aligned.
 } JALInstruction deriving(Bits, Eq);
+
+//
+// JALRInstruction
+//
+typedef struct {
+    RegisterIndex destination;
+    Bit#(12) offset;    // NOTE: always two byte aligned.
+} JALRInstruction deriving(Bits, Eq);
 
 //
 // LoadInstruction
@@ -105,6 +121,11 @@ typedef struct {
     RegisterIndex destination;
     LoadOperator operator;
 } LoadInstruction deriving(Bits, Eq);
+
+//
+// LUIInstruction
+//
+typedef AUIPCInstruction LUIInstruction;    // Same format as AUIPCInstruction.
 
 //
 // UnsupportedInstruction
@@ -133,9 +154,12 @@ typedef struct {
     RegisterIndex source2;
     
     union tagged {
-        ALUInstruction  ALUInstruction;
-        JALInstruction  JALInstruction;
+        ALUInstruction ALUInstruction;
+        AUIPCInstruction AUIPCInstruction;
+        JALInstruction JALInstruction;
+        JALRInstruction JALRInstruction;
         LoadInstruction LoadInstruction;
+        LUIInstruction LUIInstruction;
         UnsupportedInstruction UnsupportedInstruction;
     } specific;
 } DecodedInstruction deriving(Bits, Eq);
