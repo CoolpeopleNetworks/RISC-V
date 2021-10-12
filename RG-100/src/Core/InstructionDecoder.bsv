@@ -65,7 +65,7 @@ function DecodedInstruction decode(Word rawInstruction);
     EncodedInstruction encodedInstruction = tagged RawInstruction rawInstruction;
     return case(encodedInstruction.Common.opcode)
         // RV32IM
-        //7'b0000011: decode_load(pc, encodedInstruction);    // LOAD     (I-type)
+        7'b0000011: decode_load(encodedInstruction);    // LOAD     (I-type)
         7'b0010011: decode_opimm(encodedInstruction);       // OPIMM    (I-type)
         // 7'b0010111: decode_auipc(encodedInstruction);         // AUIPC    (U-type)
         // 7'b0100011: decode_store(encodedInstruction);         // STORE    (S-type)
@@ -78,71 +78,62 @@ function DecodedInstruction decode(Word rawInstruction);
 
 endfunction
 
-// function DecodedInstruction decode_load(EncodedInstruction encodedInstruction);
-//     let loadOperator = case(encodedInstruction.ItypeInstruction.func3)
-//         3'b000: Lb;
-//         3'b001: Lh;
-//         3'b010: Lw;
-//         3'b011: UnsupporttedLoadOperator;
-//         3'b100: Lbu;
-//         3'b101: Lhu;
-//         3'b110: UnsupporttedLoadOperator;
-//         3'b111: UnsupporttedLoadOperator;
-//     endcase;
+function DecodedInstruction decode_load(EncodedInstruction encodedInstruction);
+    let loadOperator = case(encodedInstruction.ItypeInstruction.func3)
+        3'b000: LB;
+        3'b001: LH;
+        3'b010: LW;
+        3'b100: LBU;
+        3'b101: LHU;
+        default: UNSUPPORTED_LOAD_OPERATOR;
+    endcase;
 
-//     if (loadOperator == UnsupporttedLoadOperator) begin
-//         return DecodedInstruction{
-//             instructionType: UNSUPPORTED,
-//             sourceRegister1: 0,
-//             sourceRegister2: 0
-//         };
-//     end else begin
-//         let loadInstructino = LoadInstruction {
-//             loadAddress: pc + signExtend(encodedInstruction.ItypeInstruction.immediate)
-//         };
-//         let loadOperation = LoadOperation {
-//             destinationRegister: encodedInstruction.ItypeInstruction.destination,
-//             operator: loadOperator,
-//             offset: encodedInstruction.ItypeInstruction.immediate
-//         };
-
-//         let specific = tagged LoadInstruction 
-//         Operation operation = tagged LoadOperation loadOperation;
-
-//         return DecodedInstruction{
-//             instructionType: LOAD,
-//             sourceRegister1: encodedInstruction.RtypeInstruction.source1,
-//             sourceRegister2: encodedInstruction.RtypeInstruction.source2,
-//             operation: operation
-//         };    
-//     end
-// endfunction
+    if (loadOperator == UNSUPPORTED_LOAD_OPERATOR) begin
+        return DecodedInstruction{
+            instructionType: UNSUPPORTED,
+            source1: 0,
+            source2: 0,
+            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+        };
+    end else begin
+        return DecodedInstruction{
+            instructionType: LOAD,
+            source1: encodedInstruction.RtypeInstruction.source1,
+            source2: 0, // Unused
+            specific: tagged LoadInstruction LoadInstruction{
+                offset: encodedInstruction.ItypeInstruction.immediate,
+                destination: encodedInstruction.ItypeInstruction.destination,
+                operator: loadOperator
+            }
+        };    
+    end
+endfunction
 
 function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
     let aluOperator = case(encodedInstruction.ItypeInstruction.func3)
-        3'b000: AddI;
-        3'b010: SltI;
-        3'b011: SltIu;
-        3'b100: XorI;
-        3'b110: OrI;
-        3'b111: AndI;
-        default: UnsupportedALUOperator;
+        3'b000: ADDI;
+        3'b010: SLTI;
+        3'b011: SLTIU;
+        3'b100: XORI;
+        3'b110: ORI;
+        3'b111: ANDI;
+        default: UNSUPPORTED_ALU_OPERATOR;
     endcase;
 
-    if (aluOperator == UnsupportedALUOperator) begin
+    if (aluOperator == UNSUPPORTED_ALU_OPERATOR) begin
         return DecodedInstruction{
             instructionType: UNSUPPORTED,
-            sourceRegister1: 0,
-            sourceRegister2: 0,
+            source1: 0,
+            source2: 0,
             specific: tagged UnsupportedInstruction UnsupportedInstruction{}
         };
     end else begin
         return DecodedInstruction{
             instructionType: OPIMM,
-            sourceRegister1: encodedInstruction.RtypeInstruction.source1,
-            sourceRegister2: 0, // Unused
+            source1: encodedInstruction.RtypeInstruction.source1,
+            source2: 0, // Unused
             specific: tagged ALUInstruction ALUInstruction{
-                destinationRegister: encodedInstruction.RtypeInstruction.destination,
+                destination: encodedInstruction.RtypeInstruction.destination,
                 operator: aluOperator,
                 immediate: signExtend(encodedInstruction.ItypeInstruction.immediate)
             }
@@ -181,33 +172,33 @@ function DecodedInstruction decode_op(EncodedInstruction encodedInstruction);
     aluOperationCode[9:3] = encodedInstruction.RtypeInstruction.func7;
 
     let aluOperator = case(aluOperationCode)
-        10'b0000000000: Add;
-        10'b0000000001: Sll;
-        10'b0000000010: Slt;
-        10'b0000000011: Sltu;
-        10'b0000000100: Xor;
-        10'b0000000101: Srl;
-        10'b0000000110: Or;
-        10'b0000000111: And;
-        10'b0100000000: Sub;
-        10'b0100000101: Sra;
-        default: UnsupportedALUOperator;
+        10'b0000000000: ADD;
+        10'b0000000001: SLL;
+        10'b0000000010: SLT;
+        10'b0000000011: SLTU;
+        10'b0000000100: XOR;
+        10'b0000000101: SRL;
+        10'b0000000110: OR;
+        10'b0000000111: AND;
+        10'b0100000000: SUB;
+        10'b0100000101: SRA;
+        default: UNSUPPORTED_ALU_OPERATOR;
     endcase;
 
-    if (aluOperator == UnsupportedALUOperator) begin
+    if (aluOperator == UNSUPPORTED_ALU_OPERATOR) begin
         return DecodedInstruction{
             instructionType: UNSUPPORTED,
-            sourceRegister1: 0,
-            sourceRegister2: 0,
+            source1: 0,
+            source2: 0,
             specific: tagged UnsupportedInstruction UnsupportedInstruction{}
         };
     end else begin
         return DecodedInstruction{
             instructionType: OP,
-            sourceRegister1: encodedInstruction.RtypeInstruction.source1,
-            sourceRegister2: encodedInstruction.RtypeInstruction.source2,
+            source1: encodedInstruction.RtypeInstruction.source1,
+            source2: encodedInstruction.RtypeInstruction.source2,
             specific: tagged ALUInstruction ALUInstruction{
-                destinationRegister: encodedInstruction.RtypeInstruction.destination,
+                destination: encodedInstruction.RtypeInstruction.destination,
                 operator: aluOperator,
                 immediate: 0 //Unused
             }

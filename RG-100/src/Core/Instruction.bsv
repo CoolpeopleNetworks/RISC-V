@@ -75,7 +75,7 @@ typedef union tagged {
 // ALUInstruction
 //
 typedef struct {
-    RegisterIndex destinationRegister;
+    RegisterIndex destination;
     ALUOperator  operator;
     Word immediate;
 } ALUInstruction deriving(Bits, Eq);
@@ -84,24 +84,24 @@ typedef struct {
 // JAL
 //
 typedef struct {
-    RegisterIndex destinationRegister;
+    RegisterIndex destination;
 } JALInstruction deriving(Bits, Eq);
 
 //
 // LoadInstruction
 //
 typedef enum {
-    Lb,
-    Lh,
-    Lw,
-    Lbu,
-    Lhu,
-    UnsupporttedLoadOperator
+    LB,
+    LH,
+    LW,
+    LBU,
+    LHU,
+    UNSUPPORTED_LOAD_OPERATOR
 } LoadOperator deriving(Bits, Eq);
 
 typedef struct {
     Bit#(12) offset;
-    RegisterIndex destinationRegister;
+    RegisterIndex destination;
     LoadOperator operator;
 } LoadInstruction deriving(Bits, Eq);
 
@@ -128,8 +128,8 @@ typedef enum {
 
 typedef struct {
     InstructionType instructionType;    
-    RegisterIndex sourceRegister1;
-    RegisterIndex sourceRegister2;
+    RegisterIndex source1;
+    RegisterIndex source2;
     
     union tagged {
         ALUInstruction  ALUInstruction;

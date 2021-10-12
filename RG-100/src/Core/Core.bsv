@@ -97,8 +97,8 @@ module mkCore(Core);
         let decodedInstruction = decodedInstructions.first();
         decodedInstructions.deq();
 
-        let r1 = registerFile.read1(decodedInstruction.sourceRegister1);
-        let r2 = registerFile.read2(decodedInstruction.sourceRegister2);
+        let r1 = registerFile.read1(decodedInstruction.source1);
+        let r2 = registerFile.read2(decodedInstruction.source2);
 
 //        let executedInstruction = executeDecodedInstruction(decodedInstruction, pc, r1, r2);
 
