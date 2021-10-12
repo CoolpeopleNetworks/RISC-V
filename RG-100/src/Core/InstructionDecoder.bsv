@@ -25,11 +25,11 @@ import Instruction::*;
 function DecodedInstruction decode(Word rawInstruction);
     EncodedInstruction encodedInstruction = tagged RawInstruction rawInstruction;
     return case(encodedInstruction.Common.opcode)
-        // RV32IM
+        // RV32I
         7'b0000011: decode_load(encodedInstruction);        // LOAD     (I-type)
         7'b0010011: decode_opimm(encodedInstruction);       // OPIMM    (I-type)
         7'b0010111: decode_auipc(encodedInstruction);       // AUIPC    (U-type)
-        // 7'b0100011: decode_store(encodedInstruction);       // STORE    (S-type)
+        7'b0100011: decode_store(encodedInstruction);       // STORE    (S-type)
         7'b0110011: decode_op(encodedInstruction);          // OP       (R-type)
         7'b0110111: decode_lui(encodedInstruction);         // LUI      (U-type)
         7'b1100011: decode_branch(encodedInstruction);      // BRANCH   (B-type)
@@ -270,14 +270,37 @@ function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
     end
 endfunction
 
-// function DecodedInstruction decode_store(Instruction instruction);
-//     return DecodedInstruction{
-//         iType: OP,
-//         aluOperation: Add,
-//         branchOperation: Eq,
-//         sourceRegister1: 0,
-//         sourceRegister2: 0,
-//         destinationRegister: Invalid,
-//         data: 0
-//     };
-// endfunction
+//
+// decode_store
+//
+function DecodedInstruction decode_store(EncodedInstruction encodedInstruction);
+    let storeOperator = case(encodedInstruction.StypeInstruction.func3)
+        3'b000: SB;
+        3'b001: SH;
+        3'b010: SW;
+        default: UNSUPPORTED_STORE_OPERATOR;
+    endcase;
+
+    if (storeOperator == UNSUPPORTED_STORE_OPERATOR) begin
+        return DecodedInstruction{
+            instructionType: UNSUPPORTED,
+            source1: 0,
+            source2: 0,
+            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+        };
+    end else begin
+        Bit#(12) offset;
+        offset[11:5] = encodedInstruction.StypeInstruction.immediate11_5;
+        offset[4:0] = encodedInstruction.StypeInstruction.immediate4_0;
+
+        return DecodedInstruction{
+            instructionType: STORE,
+            source1: encodedInstruction.StypeInstruction.source1,
+            source2: encodedInstruction.StypeInstruction.source2,
+            specific: tagged StoreInstruction StoreInstruction{
+                offset: offset,
+                operator: storeOperator
+            }
+        };    
+    end
+endfunction

@@ -34,11 +34,11 @@ typedef union tagged {
     // RV32I - S-type
     struct {
         Bit#(7) opcode;
-        Bit#(5) immediateLow;
+        Bit#(5) immediate4_0;
         Bit#(3) func3;
         RegisterIndex source1;
         RegisterIndex source2;
-        Bit#(7) immediateHigh;
+        Bit#(7) immediate11_5;
     } StypeInstruction;
 
     // RV32I - B-type
@@ -146,6 +146,21 @@ typedef struct {
 typedef AUIPCInstruction LUIInstruction;    // Same format as AUIPCInstruction.
 
 //
+// StoreInstruction
+//
+typedef enum {
+    SB,
+    SH,
+    SW,
+    UNSUPPORTED_STORE_OPERATOR
+} StoreOperator deriving(Bits, Eq);
+
+typedef struct {
+    Bit#(12) offset;
+    StoreOperator operator;
+} StoreInstruction deriving(Bits, Eq);
+
+//
 // UnsupportedInstruction
 //
 typedef struct {} UnsupportedInstruction deriving(Bits, Eq);
@@ -179,6 +194,7 @@ typedef struct {
         JALRInstruction JALRInstruction;
         LoadInstruction LoadInstruction;
         LUIInstruction LUIInstruction;
+        StoreInstruction StoreInstruction;
         UnsupportedInstruction UnsupportedInstruction;
     } specific;
 } DecodedInstruction deriving(Bits, Eq);
