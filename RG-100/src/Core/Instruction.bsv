@@ -1,4 +1,5 @@
 import Common::*;
+import ALU::*;
 
 //
 // Instruction
@@ -68,4 +69,80 @@ typedef union tagged {
         Bit#(10) immediate10_1;
         Bit#(1) immediate20;
     } JtypeInstruction;
-} Instruction deriving(Bits, Eq);
+} EncodedInstruction deriving(Bits, Eq);
+
+//
+// ALUInstruction
+//
+typedef struct {
+    RegisterIndex destinationRegister;
+    ALUOperator  operator;
+    Word immediate;
+} ALUInstruction deriving(Bits, Eq);
+
+//
+// JAL
+//
+typedef struct {
+    RegisterIndex destinationRegister;
+} JALInstruction deriving(Bits, Eq);
+
+//
+// LoadInstruction
+//
+typedef enum {
+    Lb,
+    Lh,
+    Lw,
+    Lbu,
+    Lhu,
+    UnsupporttedLoadOperator
+} LoadOperator deriving(Bits, Eq);
+
+typedef struct {
+    Bit#(12) offset;
+    RegisterIndex destinationRegister;
+    LoadOperator operator;
+} LoadInstruction deriving(Bits, Eq);
+
+//
+// UnsupportedInstruction
+//
+typedef struct {} UnsupportedInstruction deriving(Bits, Eq);
+
+//
+// DecodedInstruction
+//
+typedef enum {
+    LOAD,
+    OPIMM,
+    AUIPC,
+    STORE,
+    OP,
+    LUI,
+    BRANCH,
+    JALR,
+    JAL,
+    UNSUPPORTED
+} InstructionType deriving(Bits, Eq);
+
+typedef struct {
+    InstructionType instructionType;    
+    RegisterIndex sourceRegister1;
+    RegisterIndex sourceRegister2;
+    
+    union tagged {
+        ALUInstruction  ALUInstruction;
+        JALInstruction  JALInstruction;
+        LoadInstruction LoadInstruction;
+        UnsupportedInstruction UnsupportedInstruction;
+    } specific;
+} DecodedInstruction deriving(Bits, Eq);
+
+//
+// Executed Instruction
+//
+typedef struct {
+    DecodedInstruction decodedInstruction;
+    ProgramCounter nextPc;
+} ExecutedInstruction deriving(Bits, Eq);

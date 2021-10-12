@@ -16,7 +16,8 @@ typedef enum {
     SltIu, 
     Sll, 
     Sra, 
-    Srl
+    Srl,
+    UnsupportedALUOperator
 } ALUOperator deriving(Bits, Eq);
 
 function Word execute(Word operand1, Word operand2, ALUOperator operator);
