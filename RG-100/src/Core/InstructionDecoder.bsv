@@ -32,7 +32,7 @@ function DecodedInstruction decode(Word rawInstruction);
         // 7'b0100011: decode_store(encodedInstruction);       // STORE    (S-type)
         7'b0110011: decode_op(encodedInstruction);          // OP       (R-type)
         7'b0110111: decode_lui(encodedInstruction);         // LUI      (U-type)
-        // 7'b1100011: decode_branch(encodedInstruction);      // BRANCH   (B-type)
+        7'b1100011: decode_branch(encodedInstruction);      // BRANCH   (B-type)
         7'b1100111: decode_jalr(encodedInstruction);        // JALR     (I-type)
         7'b1101111: decode_jal(encodedInstruction);         // JAL      (J-type)
         default: DecodedInstruction{
@@ -60,6 +60,46 @@ function DecodedInstruction decode_auipc(EncodedInstruction encodedInstruction);
             effectiveAddress: effectiveAddress
         }
     };
+endfunction
+
+//
+// decode_branch
+//
+function DecodedInstruction decode_branch(EncodedInstruction encodedInstruction);
+    Bit#(13) offset = 0;
+    offset[12] = encodedInstruction.BtypeInstruction.immediate12;
+    offset[11] = encodedInstruction.BtypeInstruction.immediate11;
+    offset[10:5] = encodedInstruction.BtypeInstruction.immediate10_5;
+    offset[4:1] = encodedInstruction.BtypeInstruction.immediate4_1;
+
+    let branchOperator = case(encodedInstruction.BtypeInstruction.func3)
+        3'b000: BEQ;
+        3'b001: BNE;
+        3'b100: BLT;
+        3'b101: BGE;
+        3'b110: BLTU;
+        3'b111: BGEU;
+        default: UNSUPPORTED_BRANCH_OPERATOR;
+    endcase;
+
+    if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
+        return DecodedInstruction{
+            instructionType: UNSUPPORTED,
+            source1: 0,
+            source2: 0,
+            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+        };
+    end else begin
+        return DecodedInstruction{
+            instructionType: BRANCH,
+            source1: encodedInstruction.BtypeInstruction.source1,
+            source2: encodedInstruction.BtypeInstruction.source2,
+            specific: tagged BranchInstruction BranchInstruction{
+                offset: offset,
+                operator: branchOperator
+            }
+        };
+    end
 endfunction
 
 //
@@ -231,18 +271,6 @@ function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
 endfunction
 
 // function DecodedInstruction decode_store(Instruction instruction);
-//     return DecodedInstruction{
-//         iType: OP,
-//         aluOperation: Add,
-//         branchOperation: Eq,
-//         sourceRegister1: 0,
-//         sourceRegister2: 0,
-//         destinationRegister: Invalid,
-//         data: 0
-//     };
-// endfunction
-
-// function DecodedInstruction decode_branch(Instruction instruction);
 //     return DecodedInstruction{
 //         iType: OP,
 //         aluOperation: Add,

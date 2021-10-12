@@ -2,7 +2,7 @@ import Common::*;
 import ALU::*;
 
 //
-// Instruction
+// EncodedInstruction
 //
 typedef union tagged {
     Word RawInstruction;
@@ -89,6 +89,24 @@ typedef struct {
 } AUIPCInstruction deriving(Bits, Eq);
 
 //
+// BranchInstruction
+//
+typedef enum {
+    BEQ,
+    BNE,
+    BLT,
+    BLTU,
+    BGE,
+    BGEU,
+    UNSUPPORTED_BRANCH_OPERATOR
+} BranchOperator deriving(Bits, Eq);
+
+typedef struct {
+    BranchOperator operator;
+    Bit#(13) offset;
+} BranchInstruction deriving(Bits, Eq);
+
+//
 // JALInstruction
 //
 typedef struct {
@@ -117,8 +135,8 @@ typedef enum {
 } LoadOperator deriving(Bits, Eq);
 
 typedef struct {
-    Bit#(12) offset;
     RegisterIndex destination;
+    Bit#(12) offset;
     LoadOperator operator;
 } LoadInstruction deriving(Bits, Eq);
 
@@ -156,6 +174,7 @@ typedef struct {
     union tagged {
         ALUInstruction ALUInstruction;
         AUIPCInstruction AUIPCInstruction;
+        BranchInstruction BranchInstruction;
         JALInstruction JALInstruction;
         JALRInstruction JALRInstruction;
         LoadInstruction LoadInstruction;
