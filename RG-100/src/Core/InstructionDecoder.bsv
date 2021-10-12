@@ -1,7 +1,6 @@
 import ALU::*;
 import Common::*;
 import Instruction::*;
-import RegisterFile::*;
 
 /*  RV32IM:
         R-type:
@@ -22,44 +21,6 @@ import RegisterFile::*;
         J-type:
             1101111 - JAL
 */
-typedef struct {
-    RegisterIndex destinationRegister;
-    ALUOperator operator;
-    Bit#(12) immediate;
-} ALUOperation deriving(Bits, Eq);
-
-typedef struct {
-    RegisterIndex destinationRegister;
-    Bit#(21) offset;
-} JALOperation deriving(Bits, Eq);
-
-typedef struct {
-    RegisterIndex destinationRegister;
-    LoadOperator operator;
-    Bit#(12) offset;
-} LoadOperation deriving(Bits, Eq);
-
-typedef struct {
-} UnsupportedOperation deriving(Bits, Eq);
-
-// typedef union tagged {
-//     UnsupportedOperation UnsupportedOperation;
-//     ALUOperation ALUOperation;
-//     JALOperation JALOperation;
-//     LoadOperation LoadOperation;
-// } Operation deriving(Bits, Eq);
-
-// typedef struct {
-//     InstructionType instructionType;
-
-//     // These two fields are always present even if not used by 
-//     // the instruction.  Reading the registers (even if not used) doesn't
-//     // have any performance implications.
-//     RegisterIndex sourceRegister1;
-//     RegisterIndex sourceRegister2;
-
-//     Operation operation;
-// } DecodedInstruction deriving(Bits, Eq);
 
 function DecodedInstruction decode(Word rawInstruction);
     EncodedInstruction encodedInstruction = tagged RawInstruction rawInstruction;
@@ -67,17 +28,80 @@ function DecodedInstruction decode(Word rawInstruction);
         // RV32IM
         7'b0000011: decode_load(encodedInstruction);        // LOAD     (I-type)
         7'b0010011: decode_opimm(encodedInstruction);       // OPIMM    (I-type)
-        // 7'b0010111: decode_auipc(encodedInstruction);         // AUIPC    (U-type)
-        // 7'b0100011: decode_store(encodedInstruction);         // STORE    (S-type)
+        7'b0010111: decode_auipc(encodedInstruction);       // AUIPC    (U-type)
+        // 7'b0100011: decode_store(encodedInstruction);       // STORE    (S-type)
         7'b0110011: decode_op(encodedInstruction);          // OP       (R-type)
-        // 7'b0110111: decode_lui(encodedInstruction);           // LUI      (U-type)
-        // 7'b1100011: decode_branch(encodedInstruction);        // BRANCH   (B-type)
-        // 7'b1100111: decode_jalr(encodedInstruction);          // JALR     (I-type)
+        7'b0110111: decode_lui(encodedInstruction);         // LUI      (U-type)
+        // 7'b1100011: decode_branch(encodedInstruction);      // BRANCH   (B-type)
+        7'b1100111: decode_jalr(encodedInstruction);        // JALR     (I-type)
         7'b1101111: decode_jal(encodedInstruction);         // JAL      (J-type)
+        default: DecodedInstruction{
+            instructionType: UNSUPPORTED,
+            source1: 0,
+            source2: 0,
+            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+        };
     endcase;
-
 endfunction
 
+//
+// decode_auipc
+//
+function DecodedInstruction decode_auipc(EncodedInstruction encodedInstruction);
+    Word effectiveAddress = 0;
+    effectiveAddress[31:12] = encodedInstruction.UtypeInstruction.immediate31_12;
+
+    return DecodedInstruction{
+        instructionType: AUIPC,
+        source1: 0, // Unused
+        source2: 0, // Unused
+        specific: tagged AUIPCInstruction AUIPCInstruction{
+            destination: encodedInstruction.UtypeInstruction.destination,
+            effectiveAddress: effectiveAddress
+        }
+    };
+endfunction
+
+//
+// decode_jal
+//
+function DecodedInstruction decode_jal(EncodedInstruction encodedInstruction);
+    Bit#(21) offset;
+    offset[20] = encodedInstruction.JtypeInstruction.immediate20;
+    offset[19:12] = encodedInstruction.JtypeInstruction.immediate19_12;
+    offset[11] = encodedInstruction.JtypeInstruction.immediate11;
+    offset[10:1] = encodedInstruction.JtypeInstruction.immediate10_1;
+    offset[0] = 0;
+
+    return DecodedInstruction{
+        instructionType: JAL,
+        source1: 0, // Unused
+        source2: 0, // Unused
+        specific: tagged JALInstruction JALInstruction{
+            destination: encodedInstruction.JtypeInstruction.returnSave,
+            offset: offset
+        }
+    };
+endfunction
+
+//
+// decode_jalr
+//
+function DecodedInstruction decode_jalr(EncodedInstruction encodedInstruction);
+    return DecodedInstruction{
+        instructionType: JALR,
+        source1: encodedInstruction.ItypeInstruction.source1,
+        source2: 0, // Unused
+        specific: tagged JALRInstruction JALRInstruction{
+            destination: encodedInstruction.ItypeInstruction.destination,
+            offset: encodedInstruction.ItypeInstruction.immediate
+        }
+    };
+endfunction
+
+//
+// decode_load
+//
 function DecodedInstruction decode_load(EncodedInstruction encodedInstruction);
     let loadOperator = case(encodedInstruction.ItypeInstruction.func3)
         3'b000: LB;
@@ -109,62 +133,27 @@ function DecodedInstruction decode_load(EncodedInstruction encodedInstruction);
     end
 endfunction
 
-function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
-    let aluOperator = case(encodedInstruction.ItypeInstruction.func3)
-        3'b000: ADDI;
-        3'b010: SLTI;
-        3'b011: SLTIU;
-        3'b100: XORI;
-        3'b110: ORI;
-        3'b111: ANDI;
-        default: UNSUPPORTED_ALU_OPERATOR;
-    endcase;
+//
+// decode_lui
+//
+function DecodedInstruction decode_lui(EncodedInstruction encodedInstruction);
+    Word effectiveAddress = 0;
+    effectiveAddress[31:12] = encodedInstruction.UtypeInstruction.immediate31_12;
 
-    if (aluOperator == UNSUPPORTED_ALU_OPERATOR) begin
-        return DecodedInstruction{
-            instructionType: UNSUPPORTED,
-            source1: 0,
-            source2: 0,
-            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
-        };
-    end else begin
-        return DecodedInstruction{
-            instructionType: OPIMM,
-            source1: encodedInstruction.RtypeInstruction.source1,
-            source2: 0, // Unused
-            specific: tagged ALUInstruction ALUInstruction{
-                destination: encodedInstruction.RtypeInstruction.destination,
-                operator: aluOperator,
-                immediate: signExtend(encodedInstruction.ItypeInstruction.immediate)
-            }
-        };
-    end
+    return DecodedInstruction{
+        instructionType: LUI,
+        source1: 0, // Unused
+        source2: 0, // Unused
+        specific: tagged LUIInstruction LUIInstruction{
+            destination: encodedInstruction.UtypeInstruction.destination,
+            effectiveAddress: effectiveAddress
+        }
+    };
 endfunction
 
-// function DecodedInstruction decode_auipc(Instruction instruction);
-//     return DecodedInstruction{
-//         iType: OP,
-//         aluOperation: Add,
-//         branchOperation: Eq,
-//         sourceRegister1: 0,
-//         sourceRegister2: 0,
-//         destinationRegister: Invalid,
-//         data: 0
-//     };
-// endfunction
-
-// function DecodedInstruction decode_store(Instruction instruction);
-//     return DecodedInstruction{
-//         iType: OP,
-//         aluOperation: Add,
-//         branchOperation: Eq,
-//         sourceRegister1: 0,
-//         sourceRegister2: 0,
-//         destinationRegister: Invalid,
-//         data: 0
-//     };
-// endfunction
-
+//
+// decode_op
+//
 function DecodedInstruction decode_op(EncodedInstruction encodedInstruction);
     // Assemble the alu operation code from the func3 and func7 fields of the instruction.
     Bit#(10) aluOperationCode = 0;
@@ -206,7 +195,42 @@ function DecodedInstruction decode_op(EncodedInstruction encodedInstruction);
     end
 endfunction
 
-// function DecodedInstruction decode_lui(Instruction instruction);
+//
+// decode_opimm
+//
+function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
+    let aluOperator = case(encodedInstruction.ItypeInstruction.func3)
+        3'b000: ADDI;
+        3'b010: SLTI;
+        3'b011: SLTIU;
+        3'b100: XORI;
+        3'b110: ORI;
+        3'b111: ANDI;
+        default: UNSUPPORTED_ALU_OPERATOR;
+    endcase;
+
+    if (aluOperator == UNSUPPORTED_ALU_OPERATOR) begin
+        return DecodedInstruction{
+            instructionType: UNSUPPORTED,
+            source1: 0,
+            source2: 0,
+            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+        };
+    end else begin
+        return DecodedInstruction{
+            instructionType: OPIMM,
+            source1: encodedInstruction.RtypeInstruction.source1,
+            source2: 0, // Unused
+            specific: tagged ALUInstruction ALUInstruction{
+                destination: encodedInstruction.RtypeInstruction.destination,
+                operator: aluOperator,
+                immediate: signExtend(encodedInstruction.ItypeInstruction.immediate)
+            }
+        };
+    end
+endfunction
+
+// function DecodedInstruction decode_store(Instruction instruction);
 //     return DecodedInstruction{
 //         iType: OP,
 //         aluOperation: Add,
@@ -229,34 +253,3 @@ endfunction
 //         data: 0
 //     };
 // endfunction
-
-// function DecodedInstruction decode_jalr(Instruction instruction);
-//     return DecodedInstruction{
-//         iType: OP,
-//         aluOperation: Add,
-//         branchOperation: Eq,
-//         sourceRegister1: 0,
-//         sourceRegister2: 0,
-//         destinationRegister: Invalid,
-//         data: 0
-//     };
-// endfunction
-
-function DecodedInstruction decode_jal(EncodedInstruction encodedInstruction);
-    Bit#(21) offset;
-    offset[20] = encodedInstruction.JtypeInstruction.immediate20;
-    offset[19:12] = encodedInstruction.JtypeInstruction.immediate19_12;
-    offset[11] = encodedInstruction.JtypeInstruction.immediate11;
-    offset[10:1] = encodedInstruction.JtypeInstruction.immediate10_1;
-    offset[0] = 0;
-
-    return DecodedInstruction{
-        instructionType: JAL,
-        source1: 0, // Unused
-        source2: 0, // Unused
-        specific: tagged JALInstruction JALInstruction{
-            destination: encodedInstruction.JtypeInstruction.returnSave,
-            offset: offset
-        }
-    };
-endfunction
