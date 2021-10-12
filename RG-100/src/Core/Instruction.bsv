@@ -85,6 +85,7 @@ typedef struct {
 //
 typedef struct {
     RegisterIndex destination;
+    Bit#(21) offset;    // NOTE: always two byte aligned.
 } JALInstruction deriving(Bits, Eq);
 
 //

@@ -65,7 +65,7 @@ function DecodedInstruction decode(Word rawInstruction);
     EncodedInstruction encodedInstruction = tagged RawInstruction rawInstruction;
     return case(encodedInstruction.Common.opcode)
         // RV32IM
-        7'b0000011: decode_load(encodedInstruction);    // LOAD     (I-type)
+        7'b0000011: decode_load(encodedInstruction);        // LOAD     (I-type)
         7'b0010011: decode_opimm(encodedInstruction);       // OPIMM    (I-type)
         // 7'b0010111: decode_auipc(encodedInstruction);         // AUIPC    (U-type)
         // 7'b0100011: decode_store(encodedInstruction);         // STORE    (S-type)
@@ -73,7 +73,7 @@ function DecodedInstruction decode(Word rawInstruction);
         // 7'b0110111: decode_lui(encodedInstruction);           // LUI      (U-type)
         // 7'b1100011: decode_branch(encodedInstruction);        // BRANCH   (B-type)
         // 7'b1100111: decode_jalr(encodedInstruction);          // JALR     (I-type)
-        //7'b1101111: decode_jal(encodedInstruction);           // JAL      (J-type)
+        7'b1101111: decode_jal(encodedInstruction);         // JAL      (J-type)
     endcase;
 
 endfunction
@@ -242,25 +242,21 @@ endfunction
 //     };
 // endfunction
 
-// function DecodedInstruction decode_jal(EncodedInstruction encodedInstruction);
-//     Bit#(21) offset;
-//     offset[20] = encodedInstruction.JtypeInstruction.immediate20;
-//     offset[19:12] = encodedInstruction.JtypeInstruction.immediate19_12;
-//     offset[11] = encodedInstruction.JtypeInstruction.immediate11;
-//     offset[10:1] = encodedInstruction.JtypeInstruction.immediate10_1;
-//     offset[0] = 0;
+function DecodedInstruction decode_jal(EncodedInstruction encodedInstruction);
+    Bit#(21) offset;
+    offset[20] = encodedInstruction.JtypeInstruction.immediate20;
+    offset[19:12] = encodedInstruction.JtypeInstruction.immediate19_12;
+    offset[11] = encodedInstruction.JtypeInstruction.immediate11;
+    offset[10:1] = encodedInstruction.JtypeInstruction.immediate10_1;
+    offset[0] = 0;
 
-//     let jalOperation = JALOperation {
-//         destinationRegister: encodedInstruction.JtypeInstruction.returnSave,
-//         offset: offset
-//     };
-
-//     Operation operation = tagged JALOperation jalOperation;
-
-//     return DecodedInstruction{
-//         instructionType: JAL,
-//         sourceRegister1: 0,
-//         sourceRegister2: 0,
-//         operation: operation
-//     };
-// endfunction
+    return DecodedInstruction{
+        instructionType: JAL,
+        source1: 0, // Unused
+        source2: 0, // Unused
+        specific: tagged JALInstruction JALInstruction{
+            destination: encodedInstruction.JtypeInstruction.returnSave,
+            offset: offset
+        }
+    };
+endfunction
