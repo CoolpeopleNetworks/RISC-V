@@ -58,23 +58,3 @@ endfunction
 function Word sra(Word a, Word b);
     return 0;
 endfunction
-
-typedef enum {
-    EQ, 
-    NEQ, 
-    LT, 
-    LTU, 
-    GE, 
-    GEU
-} BranchOperation deriving(Bits, Eq);
-
-function Bool aluBranch(Word a, Word b, BranchOperation op);
-    return case(op)
-        EQ: (a == b);
-        NEQ: (a != b);
-        LT: signedLT(a, b);
-        LTU: (a < b);
-        GE: signedGE(a, b);
-        GEU: (a >= b);
-    endcase;
-endfunction

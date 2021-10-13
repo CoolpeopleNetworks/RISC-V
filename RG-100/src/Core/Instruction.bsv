@@ -85,7 +85,7 @@ typedef struct {
 //
 typedef struct {
     RegisterIndex destination;
-    Word effectiveAddress;
+    Word offset;
 } AUIPCInstruction deriving(Bits, Eq);
 
 //
@@ -143,7 +143,10 @@ typedef struct {
 //
 // LUIInstruction
 //
-typedef AUIPCInstruction LUIInstruction;    // Same format as AUIPCInstruction.
+typedef struct {
+    RegisterIndex destination;
+    Bit#(20) immediate;
+} LUIInstruction deriving(Bits, Eq);
 
 //
 // StoreInstruction
@@ -205,4 +208,6 @@ typedef struct {
 typedef struct {
     DecodedInstruction decodedInstruction;
     ProgramCounter nextPc;
+    RegisterIndex writeBack;
+    Word writeBackData;
 } ExecutedInstruction deriving(Bits, Eq);

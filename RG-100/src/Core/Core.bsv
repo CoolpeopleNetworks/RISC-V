@@ -3,7 +3,7 @@ import Common::*;
 import Instruction::*;
 
 import InstructionDecoder::*;
-//import InstructionExecution::*;
+import InstructionExecution::*;
 
 import RegisterFile::*;
 
@@ -87,6 +87,11 @@ module mkCore(Core);
 
         let decodedInstruction = InstructionDecoder::decode(encodedInstruction.data);
         decodedInstructions.enq(decodedInstruction);
+
+        if (decodedInstruction.instructionType == UNSUPPORTED) begin
+            $display("Unsupported instruction at %h", pc);
+            $finish();
+        end
     endrule
 
     //
@@ -100,46 +105,41 @@ module mkCore(Core);
         let r1 = registerFile.read1(decodedInstruction.source1);
         let r2 = registerFile.read2(decodedInstruction.source2);
 
-//        let executedInstruction = executeDecodedInstruction(decodedInstruction, pc, r1, r2);
+        let executedInstruction = executeDecodedInstruction(decodedInstruction, pc, r1, r2);
 
-//        memoryAccessInstructions.enq(executedInstruction);
+        memoryAccessInstructions.enq(executedInstruction);
     endrule
 
     //
     // Stage 4. Memory Access
-    //      - In this stage, memory operands are read/written that is present in the instruction.
-    //
-    // rule stage4;
-    //     let executedInstruction = memoryAccessInstructions.first();
-    //     memoryAccessInstructions.deq();
+    //      - In this stage, memory operands are read/written that is present in the instruction.    
+    rule stage4;
+        let executedInstruction = memoryAccessInstructions.first();
+        memoryAccessInstructions.deq();
 
-    //     if (executedInstruction.instructionType == LOAD) begin
-    //         // Put a request into the data bus
-    //         dataMemoryRequests.enq(MemoryRequest32 {
-    //             data: ?,
-    //             address: 0, // BUGBUG: get load store destination
-    //             byteen: 'hF,
-    //             write: False
-    //         });
-    //     end else if (executedInstruction.instructionType == STORE) begin
-    //     end
+        if (executedInstruction.decodedInstruction.instructionType == LOAD) begin
+            // Put a request into the data bus
+            dataMemoryRequests.enq(MemoryRequest32 {
+                data: ?,
+                address: 0, // BUGBUG: get load store destination
+                byteen: 'hF,
+                write: False
+            });
+        end else if (executedInstruction.decodedInstruction.instructionType == STORE) begin
+        end
 
-    //     writeBackInstructions.enq(executedInstruction);
-    // endrule
+        writeBackInstructions.enq(executedInstruction);
+    endrule
 
     //
     // Stage 5. Write Back
     //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
-    //
-    // rule stage5;
-    //     let executedInstruction = writeBackInstructions.first();
-    //     writeBackInstructions.deq();
+    rule stage5;
+        let executedInstruction = writeBackInstructions.first();
+        writeBackInstructions.deq();
 
-    //     if (executedInstruction.instructionType == LOAD) begin
-    //     end else if (executedInstruction.instructionType == STORE) begin
-    //     end else begin
-    //     end
-    // endrule
+        registerFile.write(executedInstruction.writeBack, executedInstruction.writeBackData);
+    endrule
 
     //
     // instructionMemoryClient

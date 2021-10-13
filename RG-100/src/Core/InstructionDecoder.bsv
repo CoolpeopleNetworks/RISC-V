@@ -48,8 +48,8 @@ endfunction
 // decode_auipc
 //
 function DecodedInstruction decode_auipc(EncodedInstruction encodedInstruction);
-    Word effectiveAddress = 0;
-    effectiveAddress[31:12] = encodedInstruction.UtypeInstruction.immediate31_12;
+    Word offset = 0;
+    offset[31:12] = encodedInstruction.UtypeInstruction.immediate31_12;
 
     return DecodedInstruction{
         instructionType: AUIPC,
@@ -57,7 +57,7 @@ function DecodedInstruction decode_auipc(EncodedInstruction encodedInstruction);
         source2: 0, // Unused
         specific: tagged AUIPCInstruction AUIPCInstruction{
             destination: encodedInstruction.UtypeInstruction.destination,
-            effectiveAddress: effectiveAddress
+            offset: offset
         }
     };
 endfunction
@@ -177,16 +177,13 @@ endfunction
 // decode_lui
 //
 function DecodedInstruction decode_lui(EncodedInstruction encodedInstruction);
-    Word effectiveAddress = 0;
-    effectiveAddress[31:12] = encodedInstruction.UtypeInstruction.immediate31_12;
-
     return DecodedInstruction{
         instructionType: LUI,
         source1: 0, // Unused
         source2: 0, // Unused
         specific: tagged LUIInstruction LUIInstruction{
             destination: encodedInstruction.UtypeInstruction.destination,
-            effectiveAddress: effectiveAddress
+            immediate: encodedInstruction.UtypeInstruction.immediate31_12
         }
     };
 endfunction
