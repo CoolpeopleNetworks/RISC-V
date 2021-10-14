@@ -164,6 +164,19 @@ typedef struct {
 } StoreInstruction deriving(Bits, Eq);
 
 //
+// SystemInstruction
+//
+typedef enum {
+    ECALL,
+    EBREAK,
+    UNSUPPORTED_SYSTEM_OPERATOR
+} SystemOperator deriving(Bits, Eq);
+
+typedef struct {
+    SystemOperator operator;
+} SystemInstruction deriving(Bits, Eq);
+
+//
 // UnsupportedInstruction
 //
 typedef struct {} UnsupportedInstruction deriving(Bits, Eq);
@@ -181,6 +194,7 @@ typedef enum {
     BRANCH,
     JALR,
     JAL,
+    SYSTEM,
     UNSUPPORTED
 } InstructionType deriving(Bits, Eq);
 
@@ -198,6 +212,7 @@ typedef struct {
         LoadInstruction LoadInstruction;
         LUIInstruction LUIInstruction;
         StoreInstruction StoreInstruction;
+        SystemInstruction SystemInstruction;
         UnsupportedInstruction UnsupportedInstruction;
     } specific;
 } DecodedInstruction deriving(Bits, Eq);
@@ -210,4 +225,9 @@ typedef struct {
     ProgramCounter nextPc;
     RegisterIndex writeBack;
     Word writeBackData;
+
+    // LOAD specific data
+    Word effectiveAddress;
+    Bool misaligned;        // If True, LOAD instruction request address was misaligned.
+    Bit#(4) byteMask;
 } ExecutedInstruction deriving(Bits, Eq);
