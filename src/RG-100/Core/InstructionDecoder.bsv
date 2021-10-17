@@ -223,12 +223,12 @@ module mkInstructionDecoder(InstructionDecoder);
     //
     function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
         let aluOperator = case(encodedInstruction.ItypeInstruction.func3)
-            3'b000: ADDI;
-            3'b010: SLTI;
-            3'b011: SLTIU;
-            3'b100: XORI;
-            3'b110: ORI;
-            3'b111: ANDI;
+            3'b000: ADD;
+            3'b010: SLT;
+            3'b011: SLTU;
+            3'b100: XOR;
+            3'b110: OR;
+            3'b111: AND;
             default: UNSUPPORTED_ALU_OPERATOR;
         endcase;
 

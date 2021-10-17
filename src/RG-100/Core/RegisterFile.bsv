@@ -19,5 +19,4 @@ module mkRegisterFile(RegisterFile);
             registers[index] <= value;
         end
     endmethod
-
 endmodule

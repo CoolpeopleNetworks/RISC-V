@@ -1,7 +1,6 @@
 import ALU::*;
 import Common::*;
 import Instruction::*;
-import LoadStore::*;
 
 interface InstructionExecutor;
     method ExecutedInstruction executeDecodedInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1, Word rs2);

@@ -2,23 +2,31 @@ import Common::*;
 
 typedef enum {
     ADD,
-    ADDI,    
     SUB, 
     AND, 
-    ANDI,
     OR,
-    ORI,
     XOR, 
-    XORI,
     SLT,
-    SLTI,
     SLTU,
-    SLTIU, 
     SLL, 
     SRA, 
     SRL,
+    MUL,
+    DIV,
     UNSUPPORTED_ALU_OPERATOR
 } ALUOperator deriving(Bits, Eq);
+
+function Word slt(Word a, Word b);
+    return (signedLT(a, b) ? 1 : 0);
+endfunction
+
+function Word sltu(Word a, Word b);
+    return (a < b ? 1 : 0);
+endfunction
+
+function Word sra(Word a, Word b);
+    return 0;
+endfunction
 
 function Word execute(Word operand1, Word operand2, ALUOperator operator);
     return case(operator)
@@ -32,29 +40,8 @@ function Word execute(Word operand1, Word operand2, ALUOperator operator);
         SLL:    (operand1 << operand2);
         SRA:    sra(operand1, operand2);
         SRL:    (operand1 >> operand2);
+        MUL:    (operand1 * operand2);
+        DIV:    (operand1 / operand2);
         // BUGBUG: how to handle invalid operators?
     endcase;
-endfunction
-
-function Word executeImmediate(Word operand1, Word immediate, ALUOperator operator);
-    return case(operator)
-        ADDI:    (operand1 + immediate);
-        ANDI:    (operand1 & immediate);
-        ORI:     (operand1 | immediate);
-        XORI:    (operand1 ^ immediate);
-        SLTIU:   sltu(operand1, immediate);
-        SLTI:    slt(operand1, immediate);
-        // BUGBUG: how to handle invalid operators?
-    endcase;
-endfunction
-function Word slt(Word a, Word b);
-    return (signedLT(a, b) ? 1 : 0);
-endfunction
-
-function Word sltu(Word a, Word b);
-    return (a < b ? 1 : 0);
-endfunction
-
-function Word sra(Word a, Word b);
-    return 0;
 endfunction

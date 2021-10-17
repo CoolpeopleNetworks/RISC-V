@@ -1,4 +1,3 @@
-import ALU::*;
 import Common::*;
 import Instruction::*;
 
