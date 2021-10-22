@@ -31,6 +31,7 @@ function(add_bluespec_simulation TARGET TOPMODULE)
     )
 
     add_custom_target(${TARGET} ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}_bsim)
+#    add_executable(${TARGET} ${TOP_MODULE} ${ARGNLIST})
 
     add_test(NAME ${TARGET} COMMAND ${CMAKE_CURRENT_BINARY_DIR}/${TARGET}_bsim)
 endfunction()

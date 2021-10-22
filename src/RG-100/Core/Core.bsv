@@ -11,6 +11,8 @@ import ClientServer::*;
 import Memory::*;
 import FIFOF::*;
 
+import MemUtil::*;
+
 typedef MemoryRequest#(32, 32) MemoryRequest32;
 typedef MemoryResponse#(32) MemoryResponse32;
 
@@ -40,7 +42,11 @@ typedef enum {
 } State deriving(Bits, Eq);
 
 (* synthesize *)
-module mkCore(Core);
+module mkCore#(
+        ReadOnlyMemServerPort#(32, 2) instructionFetch,
+        AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory
+    )(Core);
+
     //
     // State
     //

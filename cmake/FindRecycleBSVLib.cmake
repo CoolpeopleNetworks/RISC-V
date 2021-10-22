@@ -26,3 +26,11 @@ Find_File(RECYCLE_BSV_LIB_DIR
 )
 
 get_filename_component(RECYCLE_BSV_LIB_DIR ${RECYCLE_BSV_LIB_DIR} DIRECTORY)
+
+file(GLOB RECYCLE_BSV_LIB_SOURCES "${RECYCLE_BSV_LIB_DIR}/*.bsv")
+
+add_library(RecycleBSVLib ${RECYCLE_BSV_LIB_SOURCES})
+
+#add_library(recycle_bsv_lib INTERFACE)
+#add_library(recycle_bsv_lib::recycle_bsv_lib ALIAS recycle_bsv_lib)
+#set_property(TARGET recycle_bsv_lib PROPERTY INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}")
