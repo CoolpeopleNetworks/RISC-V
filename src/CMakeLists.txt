@@ -1,2 +1,2 @@
 add_subdirectory(Libraries)
-#add_subdirectory(RG-100)
+add_subdirectory(RG-100)

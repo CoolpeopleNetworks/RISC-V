@@ -27,10 +27,40 @@ Find_File(RECYCLE_BSV_LIB_DIR
 
 get_filename_component(RECYCLE_BSV_LIB_DIR ${RECYCLE_BSV_LIB_DIR} DIRECTORY)
 
-file(GLOB RECYCLE_BSV_LIB_SOURCES "${RECYCLE_BSV_LIB_DIR}/*.bsv")
+#file(GLOB RECYCLE_BSV_LIB_SOURCES "${RECYCLE_BSV_LIB_DIR}/*.bsv")
+set(RECYCLE_BSV_LIB_SOURCES
+    ${RECYCLE_BSV_DIR}/src/bsv/ClientServerUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/ClockGate.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/CompareProvisos.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/ConcatReg.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/Ehr.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/FIFOG.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/GenericAtomicMem.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/MemUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/OneWriteReg.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/PerfMonitor.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/PerfMonitor.defines
+    ${RECYCLE_BSV_DIR}/src/bsv/PerfMonitorConnectal.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/PolymorphicMem.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/Port.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/PortUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/PrintTrace.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/RWBram.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/RegFileUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/RegUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/SRAMCore.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/SRAMUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/SafeCounter.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/ScheduleMonitor.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/SearchFIFO.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/ServerUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/ShiftRegister.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/StmtFSMExtra.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/StmtFSMUtil.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/StringUtils.bsv
+    ${RECYCLE_BSV_DIR}/src/bsv/VerilogEHR.bsv
+)
 
-add_library(RecycleBSVLib ${RECYCLE_BSV_LIB_SOURCES})
+add_library(RecycleBSVLib STATIC ${RECYCLE_BSV_LIB_SOURCES})
 
-#add_library(recycle_bsv_lib INTERFACE)
-#add_library(recycle_bsv_lib::recycle_bsv_lib ALIAS recycle_bsv_lib)
-#set_property(TARGET recycle_bsv_lib PROPERTY INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}")
+add_library(RecycleBSVLib::RecycleBSVLib ALIAS RecycleBSVLib)

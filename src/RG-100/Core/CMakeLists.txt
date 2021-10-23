@@ -2,15 +2,13 @@
 
 set(SOURCE_FILES 
     ALU.bsv
-    Core.bsv
     Common.bsv
+    Core.bsv
     Instruction.bsv
     InstructionDecoder.bsv
-    MemoryController.bsv
+    InstructionExecutor.bsv
     RegisterFile.bsv
 )
 
-add_bluespec_simulation(mkCoreTest
-    tests/CoreTest.bsv
-    ${SOURCE_FILES}
-)
+add_library(Core STATIC ${SOURCE_FILES})
+target_link_libraries(Core RecycleBSVLib::RecycleBSVLib)
