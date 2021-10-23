@@ -1,0 +1,87 @@
+#!/bin/bash
+#
+# Bluespec compiler driver for CMake
+#
+set -e
+
+function join_by 
+{ 
+    local IFS="$1"; shift; echo "$*"; 
+}
+
+BSV_COMPILER="bsc"
+
+#
+# verify compiler exists
+#
+if ! command -v $BSV_COMPILER &> /dev/null
+then
+    echo "[bsvc] ERROR: bsc executable could not be found in system PATH."
+    exit 1
+fi
+
+#
+# Parse options
+#
+INPUT_FILE=""
+OUTPUT_FILE=""
+INCLUDE_DIRECTORIES=("%/Libraries")
+
+while getopts "i:o:I:" OPTION; do
+    case $OPTION in
+        i)
+            INPUT_FILE=$OPTARG
+            ;;
+        o)
+            OUTPUT_FILE=$OPTARG
+            ;;
+        I)
+            INCLUDE_DIRECTORIES+=("$OPTARG")
+            ;;
+        :)
+            echo "[bsvc] ERROR: Invalid Option: -$OPTARG requires an argument" 1>&2
+            exit 1
+            ;;
+        \?) # Invalid option
+            echo "[bsvc] ERROR: Invalid option: $OPTION"
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+#
+# Ensure required args are present
+#
+if [ -z "$INPUT_FILE" ]; then
+    echo "[bsvc] ERROR: -i option is required"
+    exit 1
+fi
+
+if [ -z "$OUTPUT_FILE" ]; then
+    echo "[bsvc] ERROR: -o option is required"
+    exit 1
+fi
+
+# Create the include directory spec by joining all directories specified
+# delimited by a colon ':'
+#
+INCLUDE_DIRECTORIES_SPEC=join_by : "${INCLUDE_DIRECTORIES[@]}"
+
+# Determine the output directory based on the dirname of the output specified
+OUTPUT_DIR=$(dirname "$OUTPUT_FILE")
+
+# Run the compiler
+$BSV_COMPILER -u -bdir "$OUTPUT_DIR" -p "$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
+
+# bsc outputs foo.bo for inputs of foo.bsv which may not be what CMake expects.
+# If the output file is different than what CMake expects copy it.
+OUTPUT_FILENAME_EXPECTED=$(basename "$OUTPUT_FILE")
+OUTPUT_FILENAME_ACTUAL=$(basename "$INPUT_FILE" .bsv).bo
+
+if [ "$OUTPUT_FILENAME_EXPECTED" != "$OUTPUT_NAME_ACTUAL" ]; then
+    OUTPUT_FILE_SOURCE="$OUTPUT_DIR/$OUTPUT_FILENAME_ACTUAL"
+    OUTPUT_FILE_DEST="$OUTPUT_DIR/$OUTPUT_FILENAME_EXPECTED"
+
+    echo "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
+fi
