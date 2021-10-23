@@ -9,6 +9,15 @@ function join_by
     local IFS="$1"; shift; echo "$*"; 
 }
 
+VERBOSE=false
+
+function log
+{
+    if [ "$VERBOSE" = "true" ]; then 
+        echo "$*"
+    fi
+}
+
 BSV_COMPILER="bsc"
 
 #
@@ -27,7 +36,7 @@ INPUT_FILE=""
 OUTPUT_FILE=""
 INCLUDE_DIRECTORIES=("%/Libraries")
 
-while getopts "i:o:I:" OPTION; do
+while getopts "i:o:I:v" OPTION; do
     case $OPTION in
         i)
             INPUT_FILE=$OPTARG
@@ -37,6 +46,9 @@ while getopts "i:o:I:" OPTION; do
             ;;
         I)
             INCLUDE_DIRECTORIES+=("$OPTARG")
+            ;;
+        v)
+            VERBOSE=true
             ;;
         :)
             echo "[bsvc] ERROR: Invalid Option: -$OPTARG requires an argument" 1>&2
@@ -66,10 +78,12 @@ fi
 # Create the include directory spec by joining all directories specified
 # delimited by a colon ':'
 #
-INCLUDE_DIRECTORIES_SPEC=join_by : "${INCLUDE_DIRECTORIES[@]}"
+INCLUDE_DIRECTORIES_SPEC=$(join_by : "${INCLUDE_DIRECTORIES[@]}")
 
 # Determine the output directory based on the dirname of the output specified
 OUTPUT_DIR=$(dirname "$OUTPUT_FILE")
+
+log "[bsvc] Command Line: '$BSV_COMPILER -u -bdir $OUTPUT_DIR -p $INCLUDE_DIRECTORIES_SPEC $INPUT_FILE'"
 
 # Run the compiler
 $BSV_COMPILER -u -bdir "$OUTPUT_DIR" -p "$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
@@ -83,5 +97,6 @@ if [ "$OUTPUT_FILENAME_EXPECTED" != "$OUTPUT_NAME_ACTUAL" ]; then
     OUTPUT_FILE_SOURCE="$OUTPUT_DIR/$OUTPUT_FILENAME_ACTUAL"
     OUTPUT_FILE_DEST="$OUTPUT_DIR/$OUTPUT_FILENAME_EXPECTED"
 
-    echo "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
+    log "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
+    cp "$OUTPUT_FILE_SOURCE" "$OUTPUT_FILE_DEST"
 fi
