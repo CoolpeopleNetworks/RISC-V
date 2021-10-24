@@ -33,6 +33,7 @@ fi
 # Parse options
 #
 OUTPUT=""
+TARGET=""
 INCLUDE_DIRECTORIES=("%/Libraries")
 
 POSITIONAL=()
@@ -46,7 +47,9 @@ while [[ $# -gt 0 ]]; do
             shift # past value
             ;;
         -I)
-            if [ -d "$2" ]; then
+            # Ignore our own target directory to remove the posibility of encountering 
+            # multple dependencies.
+            if [[ $2 != *$TARGET ]]; then
                 log "[bsvc] Library Include Directory Specified: $2"
                 INCLUDE_DIRECTORIES+=("$2")
             fi
@@ -56,6 +59,11 @@ while [[ $# -gt 0 ]]; do
         --archive)
             ARCHIVE=true
             shift
+            ;;
+        -t)
+            TARGET=$2
+            shift # past argument
+            shift # past value
             ;;
         -v|--verbose)
             VERBOSE=true
