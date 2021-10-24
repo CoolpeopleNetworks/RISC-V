@@ -46,8 +46,10 @@ while [[ $# -gt 0 ]]; do
             shift # past value
             ;;
         -I)
-            log "[bsvc] Library Include Directory Specified: $2"
-            INCLUDE_DIRECTORIES+=("$2")
+            if [ -d "$2" ]; then
+                log "[bsvc] Library Include Directory Specified: $2"
+                INCLUDE_DIRECTORIES+=("$2")
+            fi
             shift # past argument
             shift # past value
             ;;
@@ -94,10 +96,8 @@ if [ "$ARCHIVE" != "true" ]; then
     OUTPUT_DIR=$(dirname "$OUTPUT")
     SOURCE_DIR=$(dirname "$INPUT_FILE")
 
-    log "[bsvc] Command Line: '$BSV_COMPILER -u -bdir $OUTPUT_DIR -p $SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC $INPUT_FILE'"
-
     # Run the compiler
-    $BSV_COMPILER -u -bdir "$OUTPUT_DIR" -p "$SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
+    $BSV_COMPILER -q -u -bdir "$OUTPUT_DIR" -p "$SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
 
     # bsc outputs foo.bo for inputs of foo.bsv which may not be what CMake expects.
     # If the output file is different than what CMake expects copy it.

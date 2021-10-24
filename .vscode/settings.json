@@ -1,5 +1,5 @@
 {
+    "cmake.parallelJobs": 1,
     "cmake.buildArgs": [
-        "--verbose"
     ]
 }
