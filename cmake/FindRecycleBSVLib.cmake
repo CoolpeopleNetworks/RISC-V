@@ -27,7 +27,6 @@ Find_File(RECYCLE_BSV_LIB_DIR
 
 get_filename_component(RECYCLE_BSV_LIB_DIR ${RECYCLE_BSV_LIB_DIR} DIRECTORY)
 
-#file(GLOB RECYCLE_BSV_LIB_SOURCES "${RECYCLE_BSV_LIB_DIR}/*.bsv")
 set(RECYCLE_BSV_LIB_SOURCES
     ${RECYCLE_BSV_DIR}/src/bsv/ClientServerUtil.bsv
     ${RECYCLE_BSV_DIR}/src/bsv/ClockGate.bsv
@@ -62,5 +61,6 @@ set(RECYCLE_BSV_LIB_SOURCES
 )
 
 add_library(RecycleBSVLib STATIC ${RECYCLE_BSV_LIB_SOURCES})
-
 add_library(RecycleBSVLib::RecycleBSVLib ALIAS RecycleBSVLib)
+
+target_include_directories(RecycleBSVLib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}RecycleBSVLib${CMAKE_STATIC_LIBRARY_SUFFIX}")

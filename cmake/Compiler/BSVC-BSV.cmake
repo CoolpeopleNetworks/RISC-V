@@ -1,6 +1,5 @@
 # This file sets the basic flags for the BSV compiler
 set(CMAKE_BSV_FLAGS_INIT "$ENV{BSVFLAGS} ${CMAKE_BSV_FLAGS_INIT} -bdir ${CMAKE_CURRENT_BINARY_DIR} -simdir ${CMAKE_CURRENT_BINARY_DIR} -info-dir ${CMAKE_CURRENT_BINARY_DIR}")
-cmake_initialize_per_config_variable(CMAKE_BSV_FLAGS "Flags used by the BSV compiler")
+set(CMAKE_INCLUDE_FLAG_BSV "-I ")
 
-#string(APPEND CMAKE_BSV_FLAGS_MINSIZEREL_INIT " -Os")
-#string(APPEND CMAKE_BSV_FLAGS_RELEASE_INIT " -O3")
+cmake_initialize_per_config_variable(CMAKE_BSV_FLAGS "Flags used by the BSV compiler")

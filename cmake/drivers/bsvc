@@ -46,6 +46,7 @@ while [[ $# -gt 0 ]]; do
             shift # past value
             ;;
         -I)
+            log "[bsvc] Library Include Directory Specified: $2"
             INCLUDE_DIRECTORIES+=("$2")
             shift # past argument
             shift # past value
@@ -59,6 +60,7 @@ while [[ $# -gt 0 ]]; do
             shift # past argument
             ;;
         *)    # unknown option
+            log "[bsvc] OPTIONAL ARGUMENT: $1"
             POSITIONAL+=("$1") # save it in an array for later
             shift # past argument
             ;;

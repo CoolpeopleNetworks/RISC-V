@@ -9,7 +9,7 @@ include(CMakeCommonLanguageInclude)
 
 if(NOT CMAKE_BSV_COMPILE_OBJECT)
     set(CMAKE_BSV_COMPILE_OBJECT 
-        "<CMAKE_BSV_COMPILER> -v -o <OBJECT> <SOURCE>"
+        "<CMAKE_BSV_COMPILER> -v -o <OBJECT> <INCLUDES> <SOURCE>"
     )
 endif()
 
