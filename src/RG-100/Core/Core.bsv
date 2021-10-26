@@ -12,15 +12,13 @@ import Memory::*;
 import FIFOF::*;
 
 import MemUtil::*;
+import Port::*;
 
 typedef MemoryRequest#(32, 32) MemoryRequest32;
 typedef MemoryResponse#(32) MemoryResponse32;
 
 interface Core;
     method Action enableTracing();
-    
-    interface MemoryClient#(32, 32) instructionMemoryClient;
-    interface MemoryClient#(32, 32) dataMemoryClient;
 endinterface
 
 //
@@ -73,16 +71,8 @@ module mkCore#(
     InstructionExecutor         instructionExecutor <- mkInstructionExecutor();
 
     //
-    // Data request/response FIFOs.
-    //
-    FIFOF#(MemoryRequest32)     dataMemoryRequests <- mkFIFOF;
-    FIFOF#(MemoryResponse32)    dataMemoryResponses <- mkFIFOF;
-
-    //
     // Stage FIFOs
     //
-    FIFOF#(MemoryRequest32)     instructionMemoryRequests <- mkFIFOF;
-    FIFOF#(MemoryResponse32)    instructionMemoryResponses <- mkFIFOF;
     FIFOF#(DecodedInstruction)  decodedInstructions <- mkFIFOF;
     FIFOF#(ExecutedInstruction) memoryAccessInstructions <- mkFIFOF;
     FIFOF#(ExecutedInstruction) writeBackInstructions <- mkFIFOF;
@@ -110,12 +100,7 @@ module mkCore#(
             $display("[stage1] Loading instruction at PC: %h", pc);
         end
 
-        instructionMemoryRequests.enq(MemoryRequest32 {
-            data: ?,
-            address: pc,
-            byteen: 'hF,
-            write: False
-        });
+        instructionFetch.request.enq(ReadOnlyMemReq{ addr: pc });
         fetchPC <= pc;
     endrule
 
@@ -124,8 +109,8 @@ module mkCore#(
     //      - In this stage, instruction is decoded and the register file accessed to get values from registers used in the instructin.
     //
     rule stage2(state == RUNNING);
-        let encodedInstruction = instructionMemoryResponses.first();
-        instructionMemoryResponses.deq();
+        let encodedInstruction = instructionFetch.response.first();
+        instructionFetch.response.deq();
 
         if (trace) begin
             $display("[stage1] Decoding instruction (%h) at PC: %h", encodedInstruction.data, pc);
@@ -167,25 +152,31 @@ module mkCore#(
             endcase
         end
 
-        // Special case handling for LOAD/STORE
-        if (executedInstruction.decodedInstruction.instructionType == LOAD) begin
+        // Start memory access if a load or store.
+        if ((executedInstruction.decodedInstruction.instructionType == LOAD) ||
+            (executedInstruction.decodedInstruction.instructionType == STORE)) begin
             if (executedInstruction.misaligned) begin
-                $display("[stage3] ERROR - Misaligned LOAD at PC: %h", pc);
+                $display("[stage3] ERROR - Misaligned LOAD/STORE at PC: %h", pc);
                 $fatal();
             end
+
             memoryAccessInstructions.enq(executedInstruction);
 
-            // Request the data from memory.
-            dataMemoryRequests.enq(MemoryRequest32 {
-                data: ?,
-                address: executedInstruction.effectiveAddress, 
-                byteen: 0,
-                write: False
-            });
-        end else if (executedInstruction.decodedInstruction.instructionType == STORE) begin
-        end else begin
-        end
+            let addr = executedInstruction.effectiveAddress;
+            Word alignedData = r2 << {addr[1:0], 3'b0};
+            Bit#(4) writeEnable = (executedInstruction.decodedInstruction.instructionType == LOAD ? 0 : 
+                case(executedInstruction.decodedInstruction.specific.StoreInstruction.operator)
+                    SB: ('b0001 << addr[1:0]);
+                    SH: ('b0011 << addr[1:0]);
+                    SW: ('b1111);
+                endcase);
 
+            dataMemory.request.enq(AtomicMemReq {
+                        write_en: writeEnable,
+                        atomic_op: None,
+                        addr: executedInstruction.effectiveAddress,
+                        data: alignedData} );
+        end
     endrule
 
     //
@@ -196,13 +187,11 @@ module mkCore#(
         memoryAccessInstructions.deq();
 
         if (executedInstruction.decodedInstruction.instructionType == LOAD) begin
-            let memoryResponse = dataMemoryResponses.first();
-            dataMemoryResponses.deq();
+            let memoryResponse = dataMemory.response.first();
+            dataMemory.response.deq();
 
             executedInstruction.writeBack = executedInstruction.decodedInstruction.specific.LoadInstruction.destination;
             executedInstruction.writeBackData = memoryResponse.data;
-
-        end else if (executedInstruction.decodedInstruction.instructionType == STORE) begin
         end
 
         writeBackInstructions.enq(executedInstruction);
@@ -221,38 +210,4 @@ module mkCore#(
     method Action enableTracing();
         trace <= True;
     endmethod
-
-    //
-    // instructionMemoryClient
-    //
-    interface MemoryClient instructionMemoryClient;
-        interface Put response;
-            method Action put(MemoryResponse32 a);
-                instructionMemoryResponses.enq(a);
-            endmethod
-        endinterface
-        interface Get request;
-            method ActionValue#(MemoryRequest32) get;
-                instructionMemoryRequests.deq;
-                return instructionMemoryRequests.first;
-            endmethod
-        endinterface
-    endinterface
-
-    //
-    // dataMemoryClient
-    //
-    interface MemoryClient dataMemoryClient;
-        interface Put response;
-            method Action put(MemoryResponse32 a);
-                dataMemoryResponses.enq(a);
-            endmethod
-        endinterface
-        interface Get request;
-            method ActionValue#(MemoryRequest32) get;
-                dataMemoryRequests.deq;
-                return dataMemoryRequests.first;
-            endmethod
-        endinterface
-    endinterface
 endmodule

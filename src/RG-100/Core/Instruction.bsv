@@ -226,8 +226,8 @@ typedef struct {
     RegisterIndex writeBack;
     Word writeBackData;
 
-    // LOAD specific data
+    // LOAD/Store specific data
     Word effectiveAddress;
-    Bool misaligned;        // If True, LOAD instruction request address was misaligned.
+    Bool misaligned;        // If True, LOAD/STORE instruction request address was misaligned.
     Bit#(4) byteMask;
 } ExecutedInstruction deriving(Bits, Eq);
