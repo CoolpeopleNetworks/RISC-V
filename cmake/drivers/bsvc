@@ -56,10 +56,6 @@ while [[ $# -gt 0 ]]; do
             shift # past argument
             shift # past value
             ;;
-        --archive)
-            ARCHIVE=true
-            shift
-            ;;
         -t)
             TARGET=$2
             shift # past argument
@@ -82,7 +78,7 @@ if [ ${#POSITIONAL[@]} -eq 0 ]; then
     exit 1
 fi
 
-if [ "$ARCHIVE" != "true" ] && [ ${#POSITIONAL[@]} -gt 1 ]; then
+if [ ${#POSITIONAL[@]} -gt 1 ]; then
     echo "[bsvc] ERROR: Extra arguments detected."
     exit 1
 fi
@@ -92,40 +88,29 @@ if [ -z "$OUTPUT" ]; then
     exit 1
 fi
 
-if [ "$ARCHIVE" != "true" ]; then
-    INPUT_FILE=${POSITIONAL[0]}
+INPUT_FILE=${POSITIONAL[0]}
 
-    # Create the include directory spec by joining all directories specified
-    # delimited by a colon ':'
-    #
-    INCLUDE_DIRECTORIES_SPEC=$(join_by : "${INCLUDE_DIRECTORIES[@]}")
+# Create the include directory spec by joining all directories specified
+# delimited by a colon ':'
+#
+INCLUDE_DIRECTORIES_SPEC=$(join_by : "${INCLUDE_DIRECTORIES[@]}")
 
-    # Determine the output directory based on the dirname of the output specified
-    OUTPUT_DIR=$(dirname "$OUTPUT")
-    SOURCE_DIR=$(dirname "$INPUT_FILE")
+# Determine the output directory based on the dirname of the output specified
+OUTPUT_DIR=$(dirname "$OUTPUT")
+SOURCE_DIR=$(dirname "$INPUT_FILE")
 
-    # Run the compiler
-    $BSV_COMPILER -q -u -bdir "$OUTPUT_DIR" -p "$SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
+# Run the compiler
+$BSV_COMPILER -q -u -bdir "$OUTPUT_DIR" -p "$SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
 
-    # bsc outputs foo.bo for inputs of foo.bsv which may not be what CMake expects.
-    # If the output file is different than what CMake expects copy it.
-    OUTPUT_FILENAME_EXPECTED=$(basename "$OUTPUT")
-    OUTPUT_FILENAME_ACTUAL=$(basename "$INPUT_FILE" .bsv).bo
+# bsc outputs foo.bo for inputs of foo.bsv which may not be what CMake expects.
+# If the output file is different than what CMake expects copy it.
+OUTPUT_FILENAME_EXPECTED=$(basename "$OUTPUT")
+OUTPUT_FILENAME_ACTUAL=$(basename "$INPUT_FILE" .bsv).bo
 
-    if [ "$OUTPUT_FILENAME_EXPECTED" != "$OUTPUT_NAME_ACTUAL" ]; then
-        OUTPUT_FILE_SOURCE="$OUTPUT_DIR/$OUTPUT_FILENAME_ACTUAL"
-        OUTPUT_FILE_DEST="$OUTPUT_DIR/$OUTPUT_FILENAME_EXPECTED"
+if [ "$OUTPUT_FILENAME_EXPECTED" != "$OUTPUT_NAME_ACTUAL" ]; then
+    OUTPUT_FILE_SOURCE="$OUTPUT_DIR/$OUTPUT_FILENAME_ACTUAL"
+    OUTPUT_FILE_DEST="$OUTPUT_DIR/$OUTPUT_FILENAME_EXPECTED"
 
-        log "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
-        cp "$OUTPUT_FILE_SOURCE" "$OUTPUT_FILE_DEST"
-    fi
-else
-    # Archive Mode
-    mkdir -p "$OUTPUT"
-
-    for OBJECT_FILE in "${POSITIONAL[@]}"
-    do
-        TARGET_NAME=$(basename $OBJECT_FILE .bsv.bo)
-        cp "${OBJECT_FILE}" "${OUTPUT}/${TARGET_NAME}.bo"
-    done
+    log "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
+    cp "$OUTPUT_FILE_SOURCE" "$OUTPUT_FILE_DEST"
 fi
