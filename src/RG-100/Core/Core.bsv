@@ -22,7 +22,7 @@ interface Core;
 endinterface
 
 //
-// Pipeline Stages
+// Pipeline Stages (NOT CURRENTLY IMPLEMENTED)
 // 1. Instruction Fetch
 //      - In this stage CPU reads instructions from memory address located in the Program Counter.
 // 2. Instruction Decode
@@ -34,21 +34,11 @@ endinterface
 // 5. Write Back
 //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
 //
-typedef enum {
-    RESET,
-    RUNNING
-} State deriving(Bits, Eq);
-
 (* synthesize *)
 module mkCore#(
         ReadOnlyMemServerPort#(32, 2) instructionFetch,
         AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory
     )(Core);
-
-    //
-    // State
-    //
-    Reg#(State)                 state <- mkReg(RESET);
 
     //
     // Program Counter
@@ -71,13 +61,6 @@ module mkCore#(
     InstructionExecutor         instructionExecutor <- mkInstructionExecutor();
 
     //
-    // Stage FIFOs
-    //
-    FIFOF#(DecodedInstruction)  decodedInstructions <- mkFIFOF;
-    FIFOF#(ExecutedInstruction) memoryAccessInstructions <- mkFIFOF;
-    FIFOF#(ExecutedInstruction) writeBackInstructions <- mkFIFOF;
-
-    //
     // Tracing
     //
     Reg#(Bool)                  trace <- mkReg(True);
@@ -85,30 +68,11 @@ module mkCore#(
     //
     // Startup
     //
-    rule startup(state == RESET);
-        state <= RUNNING;
-    endrule
-
-    //
-    // Stage 1. Instruction Fetch
-    //      - In this stage CPU reads instructions from memory address located in the Program Counter.
-    //
-    Reg#(ProgramCounter)        fetchPC <- mkReg('hFFFFFFFF);
-
-    rule stage1(state == RUNNING && fetchPC != pc);
-        if (trace) begin
-            $display("[stage1] Loading instruction at PC: %h", pc);
-        end
-
+    rule execute;
+        //
+        // Fetch - Read instruction from memory address located in the Program Counter.
+        //
         instructionFetch.request.enq(ReadOnlyMemReq{ addr: pc });
-        fetchPC <= pc;
-    endrule
-
-    //
-    // Stage 2. Instruction Decode
-    //      - In this stage, instruction is decoded and the register file accessed to get values from registers used in the instructin.
-    //
-    rule stage2(state == RUNNING);
         let encodedInstruction = instructionFetch.response.first();
         instructionFetch.response.deq();
 
@@ -116,27 +80,22 @@ module mkCore#(
             $display("[stage1] Decoding instruction (%h) at PC: %h", encodedInstruction.data, pc);
         end
 
+        //
+        // Decode - Instruction is decoded and the register file accessed to get values from registers used in the instruction.
+        //
         let decodedInstruction = instructionDecoder.decode(encodedInstruction.data);
-        decodedInstructions.enq(decodedInstruction);
-
         if (decodedInstruction.instructionType == UNSUPPORTED) begin
             $display("[stage1] ERROR - Unsupported instruction at PC: %h", pc);
             $fatal();
         end
-    endrule
 
-    //
-    // Stage 3. Instruction Execution
-    //      - In this stage, ALU operations are performed
-    //
-    rule stage3(state == RUNNING);
-        let decodedInstruction = decodedInstructions.first();
-        decodedInstructions.deq();
+        let rs1 = registerFile.read1(decodedInstruction.source1);
+        let rs2 = registerFile.read2(decodedInstruction.source2);
 
-        let r1 = registerFile.read1(decodedInstruction.source1);
-        let r2 = registerFile.read2(decodedInstruction.source2);
-
-        let executedInstruction = instructionExecutor.executeDecodedInstruction(decodedInstruction, pc, r1, r2);
+        //
+        // Execute - ALU operations are performed
+        //
+        let executedInstruction = instructionExecutor.executeDecodedInstruction(decodedInstruction, pc, rs1, rs2);
 
         // Special case handling for SYSTEM
         if (executedInstruction.decodedInstruction.instructionType == SYSTEM) begin
@@ -152,7 +111,9 @@ module mkCore#(
             endcase
         end
 
-        // Start memory access if a load or store.
+        //
+        // Memory Access - Memory operands are read/written that are present in the instruction.
+        //
         if ((executedInstruction.decodedInstruction.instructionType == LOAD) ||
             (executedInstruction.decodedInstruction.instructionType == STORE)) begin
             if (executedInstruction.misaligned) begin
@@ -160,10 +121,8 @@ module mkCore#(
                 $fatal();
             end
 
-            memoryAccessInstructions.enq(executedInstruction);
-
             let addr = executedInstruction.effectiveAddress;
-            Word alignedData = r2 << {addr[1:0], 3'b0};
+            Word alignedData = rs2 << {addr[1:0], 3'b0};
             Bit#(4) writeEnable = (executedInstruction.decodedInstruction.instructionType == LOAD ? 0 : 
                 case(executedInstruction.decodedInstruction.specific.StoreInstruction.operator)
                     SB: ('b0001 << addr[1:0]);
@@ -177,14 +136,6 @@ module mkCore#(
                         addr: executedInstruction.effectiveAddress,
                         data: alignedData} );
         end
-    endrule
-
-    //
-    // Stage 4. Memory Access
-    //      - In this stage, memory operands are read/written that is present in the instruction.    
-    rule stage4(state == RUNNING);
-        let executedInstruction = memoryAccessInstructions.first();
-        memoryAccessInstructions.deq();
 
         if (executedInstruction.decodedInstruction.instructionType == LOAD) begin
             let memoryResponse = dataMemory.response.first();
@@ -194,17 +145,11 @@ module mkCore#(
             executedInstruction.writeBackData = memoryResponse.data;
         end
 
-        writeBackInstructions.enq(executedInstruction);
-    endrule
-
-    //
-    // Stage 5. Write Back
-    //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
-    rule stage5(state == RUNNING);
-        let executedInstruction = writeBackInstructions.first();
-        writeBackInstructions.deq();
-
+        //
+        // Write Back - Computed/fetched values are written back to the register file present in the instruction.
+        //
         registerFile.write(executedInstruction.writeBack, executedInstruction.writeBackData);
+
     endrule
 
     method Action enableTracing();

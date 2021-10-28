@@ -19,13 +19,15 @@ function log
 }
 
 BSV_COMPILER="bsc"
+COMMAND_LINE=$*
+echo "[bsvlink] COMMAND LINE: $COMMAND_LINE"
 
 #
 # verify compiler exists
 #
 if ! command -v $BSV_COMPILER &> /dev/null
 then
-    echo "[bsvc] ERROR: bsc executable could not be found in system PATH."
+    echo "[bsvlink] ERROR: bsc executable could not be found in system PATH."
     exit 1
 fi
 
@@ -50,7 +52,7 @@ while [[ $# -gt 0 ]]; do
             # Ignore our own target directory to remove the posibility of encountering 
             # multple dependencies.
             if [[ $2 != *$TARGET ]]; then
-                log "[bsvc] Library Include Directory Specified: $2"
+                log "[bsvlink] Library Include Directory Specified: $2"
                 INCLUDE_DIRECTORIES+=("$2")
             fi
             shift # past argument
@@ -66,7 +68,7 @@ while [[ $# -gt 0 ]]; do
             shift # past argument
             ;;
         *)    # unknown option
-            log "[bsvc] OPTIONAL ARGUMENT: $1"
+            log "[bsvlink] OPTIONAL ARGUMENT: $1"
             POSITIONAL+=("$1") # save it in an array for later
             shift # past argument
             ;;
@@ -74,17 +76,20 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ ${#POSITIONAL[@]} -eq 0 ]; then
-    echo "[bsvc] ERROR: No input files specified."
+    echo "[bsvlink] ERROR: No input files specified."
+    echo "[bsvlink] Command line given: $COMMAND_LINE"
     exit 1
 fi
 
 if [ ${#POSITIONAL[@]} -gt 1 ]; then
-    echo "[bsvc] ERROR: Extra arguments detected."
+    echo "[bsvlink] ERROR: Extra arguments detected."
+    echo "[bsvlink] Command line given: $COMMAND_LINE"
     exit 1
 fi
 
 if [ -z "$OUTPUT" ]; then
-    echo "[bsvc] ERROR: -o option is required"
+    echo "[bsvlink] ERROR: -o option is required"
+    echo "[bsvlink] Command line given: $COMMAND_LINE"
     exit 1
 fi
 
@@ -111,6 +116,6 @@ if [ "$OUTPUT_FILENAME_EXPECTED" != "$OUTPUT_NAME_ACTUAL" ]; then
     OUTPUT_FILE_SOURCE="$OUTPUT_DIR/$OUTPUT_FILENAME_ACTUAL"
     OUTPUT_FILE_DEST="$OUTPUT_DIR/$OUTPUT_FILENAME_EXPECTED"
 
-    log "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
+    log "[bsvlink] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
     cp "$OUTPUT_FILE_SOURCE" "$OUTPUT_FILE_DEST"
 fi
