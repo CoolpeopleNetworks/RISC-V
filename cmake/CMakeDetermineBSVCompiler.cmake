@@ -8,7 +8,7 @@ _cmake_find_compiler(BSV)
 mark_as_advanced(CMAKE_BSV_COMPILER)
 
 set(CMAKE_AR ${CMAKE_CURRENT_LIST_DIR}/Wrappers/bsvar)
-set(CMAKE_BSV_LINK_EXECUTABLE ${CMAKE_CURRENT_LIST_DIR}/Wrappers/bsvlink)
+set(CMAKE_BSV_LINKER ${CMAKE_CURRENT_LIST_DIR}/Wrappers/bsvlink)
 
 set(CMAKE_BSV_COMPILER_ID "BSVC")
 set(CMAKE_BSV_SOURCE_FILE_EXTENSIONS bsv;BSV)

@@ -34,7 +34,6 @@ endinterface
 // 5. Write Back
 //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
 //
-(* synthesize *)
 module mkCore#(
         ReadOnlyMemServerPort#(32, 2) instructionFetch,
         AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory

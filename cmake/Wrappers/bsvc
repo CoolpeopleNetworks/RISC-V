@@ -36,7 +36,9 @@ fi
 OUTPUT=""
 TARGET=""
 INCLUDE_DIRECTORIES=("%/Libraries")
+COMPILE=true
 STATIC_LIBRARY=false
+LINK=false
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
@@ -60,7 +62,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --static-library)
             STATIC_LIBRARY=true
+            LINK=false
+            COMPILE=false
             shift # past argument
+            ;;
+        --link)
+            LINK=true
+            STATIC_LIBRARY=false
+            COMPILE=false
+            shift
             ;;
         -t)
             TARGET=$2
@@ -73,13 +83,20 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)    # unknown option
             if [ "$TARGET" == "" ] || [[ $1 != *$TARGET ]]; then
-                log "[bsvc] OPTIONAL ARGUMENT: $1"
-                POSITIONAL+=("$1") # save it in an array for later
+                if [[ $1 == *.a ]]; then
+                    INCLUDE_DIRECTORIES+=("$1")
+                    log "[bsvc] Adding include directory: $1"
+                else
+                    POSITIONAL+=("$1")
+                    log "[bsvc] Adding optional argument: $1"
+                fi
             fi
             shift # past argument
             ;;
   esac
 done
+
+log "[bsvc] COMMAND_LINE: $COMMAND_LINE"
 
 if [ ${#POSITIONAL[@]} -eq 0 ]; then
     echo "[bsvc] ERROR: No input files specified."
@@ -87,7 +104,7 @@ if [ ${#POSITIONAL[@]} -eq 0 ]; then
     exit 1
 fi
 
-if [ ${#POSITIONAL[@]} -gt 1 ] && [ "$STATIC_LIBRARY" != "true" ]; then
+if [ ${#POSITIONAL[@]} -gt 1 ] && [ "$COMPILE" == "true" ]; then
     echo "[bsvc] ERROR: Extra arguments detected."
     echo "[bsvc] Command line given: $COMMAND_LINE"
     exit 1
@@ -109,10 +126,12 @@ if [ "$STATIC_LIBRARY" == "true" ]; then
         TARGET_NAME=$(basename "$OBJECT_FILE" .bsv.bo)
         cp "${OBJECT_FILE}" "${OUTPUT}/${TARGET_NAME}.bo"
     done
-else
-    log "[bsvc] Creating object file $(basename "$INPUT_FILE" .bsv).bo"
-
+elif [ "$LINK" == "true" ]; then
     INPUT_FILE=${POSITIONAL[0]}
+
+    TOP_MODULE=mk$(basename "$INPUT_FILE" .bsv.bo)
+
+    log "[bsvc] Creating bsim file $(basename "$OUTPUT") for topmodule $TOP_MODULE"
 
     # Create the include directory spec by joining all directories specified
     # delimited by a colon ':'
@@ -124,7 +143,23 @@ else
     SOURCE_DIR=$(dirname "$INPUT_FILE")
 
     # Run the compiler
-    $BSV_COMPILER -q -u -bdir "$OUTPUT_DIR" -p "$SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC" "$INPUT_FILE"
+    $BSV_COMPILER -sim -q -u -e $TOP_MODULE -bdir "$OUTPUT_DIR" -p "$SOURCE_DIR:$INCLUDE_DIRECTORIES_SPEC" -o "$OUTPUT"
+else
+    INPUT_FILE=${POSITIONAL[0]}
+
+    log "[bsvc] Creating object file $(basename "$INPUT_FILE" .bsv).bo"
+
+    # Create the include directory spec by joining all directories specified
+    # delimited by a colon ':'
+    #
+    INCLUDE_DIRECTORIES_SPEC=$(join_by : "${INCLUDE_DIRECTORIES[@]}")
+
+    # Determine the output directory based on the dirname of the output specified
+    OUTPUT_DIR=$(dirname "$OUTPUT")
+    SOURCE_DIR=$(dirname "$INPUT_FILE")
+
+    # Run the compiler
+    $BSV_COMPILER -q -u -sim -bdir "$OUTPUT_DIR" -simdir "$OUTPUT_DIR" -info-dir "$OUTPUT_DIR" -p "$INCLUDE_DIRECTORIES_SPEC:$SOURCE_DIR" "$INPUT_FILE"
 
     # bsc outputs foo.bo for inputs of foo.bsv which may not be what CMake expects.
     # If the output file is different than what CMake expects copy it.
