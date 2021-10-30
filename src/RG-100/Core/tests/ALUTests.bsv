@@ -4,6 +4,7 @@ import ALU::*;
 module mkALUTests(Empty);
     rule test;
         $display("mkALUTests running...");
-        $finish();
+        $display("--- PASSED");
+        $fatal();
     endrule
 endmodule

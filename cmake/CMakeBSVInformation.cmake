@@ -26,3 +26,7 @@ if(NOT CMAKE_BSV_LINK_EXECUTABLE)
 endif()
 
 set(CMAKE_BSV_INFORMATION_LOADED 1)
+
+function(add_bsim_testbench TARGET)
+    add_test(NAME ${TARGET} COMMAND "${CMAKE_BSV_TESTWRAPPER}" "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}")
+endfunction()

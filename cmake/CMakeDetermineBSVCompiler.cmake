@@ -14,6 +14,7 @@ set(CMAKE_BSV_COMPILER_ID "BSVC")
 set(CMAKE_BSV_SOURCE_FILE_EXTENSIONS bsv;BSV)
 set(CMAKE_BSV_OUTPUT_EXTENSION .bo)
 set(CMAKE_BSV_COMPILER_ENV_VAR "BSV_COMPILER")
+set(CMAKE_BSV_TESTWRAPPER ${CMAKE_CURRENT_LIST_DIR}/Wrappers/bsvtest)
 
 # configure variables set in this file for fast reload later on
 configure_file(${CMAKE_CURRENT_LIST_DIR}/CMakeBSVCompiler.cmake.in
