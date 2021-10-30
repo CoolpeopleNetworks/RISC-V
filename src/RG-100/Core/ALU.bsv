@@ -11,8 +11,6 @@ typedef enum {
     SLL, 
     SRA, 
     SRL,
-    MUL,
-    DIV,
     UNSUPPORTED_ALU_OPERATOR
 } ALUOperator deriving(Bits, Eq);
 
@@ -40,8 +38,6 @@ function Word execute(Word operand1, Word operand2, ALUOperator operator);
         SLL:    (operand1 << operand2);
         SRA:    sra(operand1, operand2);
         SRL:    (operand1 >> operand2);
-        MUL:    (operand1 * operand2);
-        DIV:    (operand1 / operand2);
         // BUGBUG: how to handle invalid operators?
     endcase;
 endfunction
