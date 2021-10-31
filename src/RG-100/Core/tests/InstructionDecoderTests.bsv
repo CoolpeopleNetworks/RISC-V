@@ -11,7 +11,7 @@ module mkInstructionDecoderTests(Empty);
         case (testNumber)
             0: begin
                 let decodedInstruction = instructionDecoder.decode(0);
-                if (decodedInstruction.instructionType != OP) begin
+                if (decodedInstruction.instructionType != UNSUPPORTED) begin
                     $display("Instruction Decoder - Test %0d failed - Expected UNSUPPORTED, Found: %0d", testNumber, decodedInstruction.instructionType);
                     $fatal(); 
                 end
