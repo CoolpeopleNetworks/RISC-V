@@ -179,43 +179,27 @@ module mkInstructionDecoder(InstructionDecoder);
     //
     function DecodedInstruction decode_op(EncodedInstruction encodedInstruction);
         // Assemble the alu operation code from the func3 and func7 fields of the instruction.
-        Bit#(10) aluOperationCode = 0;
-        aluOperationCode[2:0] = encodedInstruction.RtypeInstruction.func3;
-        aluOperationCode[9:3] = encodedInstruction.RtypeInstruction.func7;
-
-        let aluOperator = case(aluOperationCode)
-            10'b0000000000: ADD;
-            10'b0000000001: SLL;
-            10'b0000000010: SLT;
-            10'b0000000011: SLTU;
-            10'b0000000100: XOR;
-            10'b0000000101: SRL;
-            10'b0000000110: OR;
-            10'b0000000111: AND;
-            10'b0100000000: SUB;
-            10'b0100000101: SRA;
-            default: UNSUPPORTED_ALU_OPERATOR;
+        let aluOperator = case(encodedInstruction.ItypeInstruction.func3)
+            3'b000: (encodedInstruction.RtypeInstruction.func7[6] == 0 ? ADD : SUB);
+            3'b001: SLL;
+            3'b010: SLT;
+            3'b011: SLTU;
+            3'b100: XOR;
+            3'b101: (encodedInstruction.RtypeInstruction.func7[6] == 0 ? SRL : SRA);
+            3'b110: OR;
+            3'b111: AND;
         endcase;
 
-        if (aluOperator == UNSUPPORTED_ALU_OPERATOR) begin
-            return DecodedInstruction{
-                instructionType: UNSUPPORTED,
-                source1: 0,
-                source2: 0,
-                specific: tagged UnsupportedInstruction UnsupportedInstruction{}
-            };
-        end else begin
-            return DecodedInstruction{
-                instructionType: OP,
-                source1: encodedInstruction.RtypeInstruction.source1,
-                source2: encodedInstruction.RtypeInstruction.source2,
-                specific: tagged ALUInstruction ALUInstruction{
-                    destination: encodedInstruction.RtypeInstruction.destination,
-                    operator: aluOperator,
-                    immediate: 0 //Unused
-                }
-            };
-        end
+        return DecodedInstruction{
+            instructionType: OP,
+            source1: encodedInstruction.RtypeInstruction.source1,
+            source2: encodedInstruction.RtypeInstruction.source2,
+            specific: tagged ALUInstruction ALUInstruction{
+                destination: encodedInstruction.RtypeInstruction.destination,
+                operator: aluOperator,
+                immediate: 0 //Unused
+            }
+        };
     endfunction
 
     //
@@ -224,33 +208,30 @@ module mkInstructionDecoder(InstructionDecoder);
     function DecodedInstruction decode_opimm(EncodedInstruction encodedInstruction);
         let aluOperator = case(encodedInstruction.ItypeInstruction.func3)
             3'b000: ADD;
+            3'b001: SLL;
             3'b010: SLT;
             3'b011: SLTU;
             3'b100: XOR;
+            3'b101: (encodedInstruction.ItypeInstruction.immediate[10] == 0 ? SRL : SRA);
             3'b110: OR;
             3'b111: AND;
-            default: UNSUPPORTED_ALU_OPERATOR;
         endcase;
 
-        if (aluOperator == UNSUPPORTED_ALU_OPERATOR) begin
-            return DecodedInstruction{
-                instructionType: UNSUPPORTED,
-                source1: 0,
-                source2: 0,
-                specific: tagged UnsupportedInstruction UnsupportedInstruction{}
-            };
-        end else begin
-            return DecodedInstruction{
-                instructionType: OPIMM,
-                source1: encodedInstruction.RtypeInstruction.source1,
-                source2: 0, // Unused
-                specific: tagged ALUInstruction ALUInstruction{
-                    destination: encodedInstruction.RtypeInstruction.destination,
-                    operator: aluOperator,
-                    immediate: signExtend(encodedInstruction.ItypeInstruction.immediate)
-                }
-            };
+        let immediate = encodedInstruction.ItypeInstruction.immediate;
+        if (aluOperator == SRA) begin
+            immediate[10] = 0;
         end
+
+        return DecodedInstruction{
+            instructionType: OPIMM,
+            source1: encodedInstruction.ItypeInstruction.source1,
+            source2: 0, // Unused
+            specific: tagged ALUInstruction ALUInstruction{
+                destination: encodedInstruction.ItypeInstruction.destination,
+                operator: aluOperator,
+                immediate: immediate
+            }
+        };
     endfunction
 
     //

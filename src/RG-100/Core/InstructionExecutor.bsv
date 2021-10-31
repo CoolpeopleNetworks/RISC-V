@@ -12,6 +12,11 @@ module mkInstructionExecutor(InstructionExecutor);
     Reg#(Bool) trace <- mkReg(False);
 
     //
+    // ALU
+    //
+    ALU alu <- mkALU();
+
+    //
     // AUIPC
     //
     function ExecutedInstruction executeAUIPCInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc);
@@ -176,7 +181,7 @@ module mkInstructionExecutor(InstructionExecutor);
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
             writeBack: decodedInstruction.specific.ALUInstruction.destination,
-            writeBackData: ALU::execute(rs1, rs2, decodedInstruction.specific.ALUInstruction.operator),
+            writeBackData: alu.execute(rs1, rs2, decodedInstruction.specific.ALUInstruction.operator),
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
             misaligned: False       // Unused
@@ -187,12 +192,11 @@ module mkInstructionExecutor(InstructionExecutor);
     // OPIMM
     //
     function ExecutedInstruction executeOPIMMInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1);
-        let immediate = signExtend(decodedInstruction.specific.ALUInstruction.immediate);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
             writeBack: decodedInstruction.specific.ALUInstruction.destination,
-            writeBackData: ALU::execute(rs1, immediate, decodedInstruction.specific.ALUInstruction.operator),
+            writeBackData: alu.execute_immediate(rs1, decodedInstruction.specific.ALUInstruction.immediate, decodedInstruction.specific.ALUInstruction.operator),
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
             misaligned: False       // Unused

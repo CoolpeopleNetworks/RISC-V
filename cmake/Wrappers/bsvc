@@ -126,6 +126,10 @@ if [ "$STATIC_LIBRARY" == "true" ]; then
         TARGET_NAME=$(basename "$OBJECT_FILE" .bsv.bo)
         cp "${OBJECT_FILE}" "${OUTPUT}/${TARGET_NAME}.bo"
     done
+
+    # Copy any elaboration files
+    find $(dirname "${POSITIONAL[0]}") -name '*.ba' -exec cp {} "${OUTPUT}" \;
+
 elif [ "$LINK" == "true" ]; then
     INPUT_FILE=${POSITIONAL[0]}
 

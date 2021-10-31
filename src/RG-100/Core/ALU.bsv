@@ -2,42 +2,54 @@ import Common::*;
 
 typedef enum {
     ADD,
-    SUB, 
     AND, 
     OR,
-    XOR, 
     SLT,
     SLTU,
     SLL, 
     SRA, 
     SRL,
-    UNSUPPORTED_ALU_OPERATOR
-} ALUOperator deriving(Bits, Eq);
+    SUB, 
+    XOR} ALUOperator deriving(Bits, Eq);
 
-function Word slt(Word a, Word b);
-    return (signedLT(a, b) ? 1 : 0);
-endfunction
+interface ALU;
+    method Word execute(Word operand1, Word operand2, ALUOperator operator);
+    method Word execute_immediate(Word operand1, Bit#(12) immediate, ALUOperator operator);
+endinterface
 
-function Word sltu(Word a, Word b);
-    return (a < b ? 1 : 0);
-endfunction
+(* synthesize *)
+module mkALU(ALU);
+    function Word setLessThanUnsigned(Word operand1, Word operand2);
+        return (operand1 < operand2 ? 1 : 0);
+    endfunction
 
-function Word sra(Word a, Word b);
-    return 0;
-endfunction
+    function Word setLessThan(Word operand1, Word operand2);
+        Int#(32) signedOperand1 = unpack(pack(operand1));
+        Int#(32) signedOperand2 = unpack(pack(operand2));
+        return (signedOperand1 < signedOperand2 ? 1 : 0);
+    endfunction
 
-function Word execute(Word operand1, Word operand2, ALUOperator operator);
-    return case(operator)
-        ADD:    (operand1 + operand2);
-        SUB:    (operand1 - operand2);
-        AND:    (operand1 & operand2);
-        OR:     (operand1 | operand2);
-        XOR:    (operand1 ^ operand2);
-        SLTU:   sltu(operand1, operand2);
-        SLT:    slt(operand1, operand2);
-        SLL:    (operand1 << operand2);
-        SRA:    sra(operand1, operand2);
-        SRL:    (operand1 >> operand2);
-        // BUGBUG: how to handle invalid operators?
-    endcase;
-endfunction
+    function Word execute_internal(Word operand1, Word operand2, ALUOperator operator);
+        return case(operator)
+            ADD:    (operand1 + operand2);
+            SUB:    (operand1 - operand2);
+            AND:    (operand1 & operand2);
+            OR:     (operand1 | operand2);
+            XOR:    (operand1 ^ operand2);
+            SLTU:   setLessThanUnsigned(operand1, operand2);
+            SLT:    setLessThan(operand1, operand2);
+            SLL:    (operand1 << operand2[4:0]);
+            SRA:    signedShiftRight(operand1, operand2[4:0]);
+            SRL:    (operand1 >> operand2[4:0]);
+            // BUGBUG: how to handle invalid operators?
+        endcase;
+    endfunction
+
+    method Word execute(Word operand1, Word operand2, ALUOperator operator);
+        return execute_internal(operand1, operand2, operator);
+    endmethod
+
+    method Word execute_immediate(Word operand1, Bit#(12) immediate, ALUOperator operator);
+        return execute_internal(operand1, signExtend(immediate), operator);
+    endmethod
+endmodule

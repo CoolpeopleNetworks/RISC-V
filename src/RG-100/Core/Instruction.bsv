@@ -77,7 +77,7 @@ typedef union tagged {
 typedef struct {
     RegisterIndex destination;
     ALUOperator  operator;
-    Word immediate;
+    Bit#(12) immediate;
 } ALUInstruction deriving(Bits, Eq);
 
 //
