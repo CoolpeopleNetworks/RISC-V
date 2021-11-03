@@ -2,74 +2,66 @@ import Common::*;
 import ALU::*;
 
 //
-// EncodedInstruction
+// EncodedInstructions
 //
-typedef union tagged {
-    Word RawInstruction;
 
-    struct {
-        Bit#(7) opcode;
-        Bit#(25) data;
-    } Common;
+// RV32I - R-type
+typedef struct {
+    Bit#(7) func7;
+    RegisterIndex source2;
+    RegisterIndex source1;
+    Bit#(3) func3;
+    RegisterIndex destination;
+    Bit#(7) opcode;
+} RtypeInstruction deriving(Bits, Eq);
 
-    // RV32I - R-type
-    struct {
-        Bit#(7) opcode;
-        RegisterIndex destination;
-        Bit#(3) func3;
-        RegisterIndex source1;
-        RegisterIndex source2;
-        Bit#(7) func7;
-    } RtypeInstruction;
+// RV32I - I-type
+typedef struct {
+    Bit#(12) immediate;
+    RegisterIndex source1;
+    Bit#(3) func3;
+    RegisterIndex destination;
+    Bit#(7) opcode;
+} ItypeInstruction deriving(Bits, Eq);
 
-    // RV32I - I-type
-    struct {
-        Bit#(7) opcode;
-        RegisterIndex destination;
-        Bit#(3) func3;
-        RegisterIndex source1;
-        Bit#(12) immediate;
-    } ItypeInstruction;
+// RV32I - S-type
+typedef struct {
+    Bit#(7) immediate11_5;
+    RegisterIndex source2;
+    RegisterIndex source1;
+    Bit#(3) func3;
+    Bit#(5) immediate4_0;
+    Bit#(7) opcode;
+} StypeInstruction deriving(Bits, Eq);
 
-    // RV32I - S-type
-    struct {
-        Bit#(7) opcode;
-        Bit#(5) immediate4_0;
-        Bit#(3) func3;
-        RegisterIndex source1;
-        RegisterIndex source2;
-        Bit#(7) immediate11_5;
-    } StypeInstruction;
+// RV32I - B-type
+typedef struct {
+    Bit#(1) immediate12;
+    Bit#(6) immediate10_5;
+    RegisterIndex source2;
+    RegisterIndex source1;
+    Bit#(3) func3;
+    Bit#(4) immediate4_1;
+    Bit#(1) immediate11;
+    Bit#(7) opcode;
+} BtypeInstruction deriving(Bits, Eq);
 
-    // RV32I - B-type
-    struct {
-        Bit#(7) opcode;
-        Bit#(1) immediate11;
-        Bit#(4) immediate4_1;
-        Bit#(3) func3;
-        RegisterIndex source1;
-        RegisterIndex source2;
-        Bit#(6) immediate10_5;
-        Bit#(1) immediate12;
-    } BtypeInstruction;
+// RV32I - U-type
+typedef struct {
+    Bit#(20) immediate31_12;
+    RegisterIndex destination;
+    Bit#(7) opcode;
+} UtypeInstruction deriving(Bits, Eq);
 
-    // RV32I - U-type
-    struct {
-        Bit#(7) opcode;
-        RegisterIndex destination;
-        Bit#(20) immediate31_12;
-    } UtypeInstruction;
-
-    // RV32I - J-type
-    struct {
-        Bit#(7) opcode;
-        RegisterIndex returnSave;
-        Bit#(8) immediate19_12;
-        Bit#(1) immediate11;
-        Bit#(10) immediate10_1;
-        Bit#(1) immediate20;
-    } JtypeInstruction;
-} EncodedInstruction deriving(Bits, Eq);
+// RV32I - J-type
+typedef struct {
+    Bit#(1) immediate20;
+    Bit#(10) immediate10_1;
+    Bit#(1) immediate11;
+    Bit#(8) immediate19_12;
+    RegisterIndex returnSave;
+    Bit#(7) opcode;
+} JtypeInstruction deriving(Bits, Eq);
 
 //
 // ALUInstruction
@@ -185,17 +177,17 @@ typedef struct {} UnsupportedInstruction deriving(Bits, Eq);
 // DecodedInstruction
 //
 typedef enum {
-    LOAD,
-    OPIMM,
-    AUIPC,
-    STORE,
-    OP,
-    LUI,
-    BRANCH,
-    JALR,
-    JAL,
-    SYSTEM,
-    UNSUPPORTED
+    LOAD = 0,
+    OPIMM = 1,
+    AUIPC = 2,
+    STORE = 3,
+    OP = 4,
+    LUI = 5,
+    BRANCH = 6,
+    JALR = 7,
+    JAL = 8,
+    SYSTEM = 9,
+    UNSUPPORTED = 15
 } InstructionType deriving(Bits, Eq);
 
 typedef struct {
