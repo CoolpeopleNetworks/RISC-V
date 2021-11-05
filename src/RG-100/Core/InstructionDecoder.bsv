@@ -24,8 +24,7 @@ import Instruction::*;
 //
 // decode_auipc
 //
-function DecodedInstruction decode_auipc(Word encodedInstruction);
-    UtypeInstruction uTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_auipc(UtypeInstruction uTypeInstruction);
     Word offset = 0;
     offset[31:12] = uTypeInstruction.immediate31_12;
 
@@ -43,8 +42,7 @@ endfunction
 //
 // decode_branch
 //
-function DecodedInstruction decode_branch(Word encodedInstruction);
-    BtypeInstruction bTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_branch(BtypeInstruction bTypeInstruction);
     Bit#(13) offset = 0;
     offset[12] = bTypeInstruction.immediate12;
     offset[11] = bTypeInstruction.immediate11;
@@ -84,8 +82,7 @@ endfunction
 //
 // decode_jal
 //
-function DecodedInstruction decode_jal(Word encodedInstruction);
-    JtypeInstruction jTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_jal(JtypeInstruction jTypeInstruction);
     Bit#(21) offset = 0;
     offset[20] = jTypeInstruction.immediate20;
     offset[19:12] = jTypeInstruction.immediate19_12;
@@ -107,8 +104,7 @@ endfunction
 //
 // decode_jalr
 //
-function DecodedInstruction decode_jalr(Word encodedInstruction);
-    ItypeInstruction iTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_jalr(ItypeInstruction iTypeInstruction);
     return DecodedInstruction{
         instructionType: JALR,
         source1: iTypeInstruction.source1,
@@ -123,8 +119,7 @@ endfunction
 //
 // decode_load
 //
-function DecodedInstruction decode_load(Word encodedInstruction);
-    ItypeInstruction iTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_load(ItypeInstruction iTypeInstruction);
     let loadOperator = case(iTypeInstruction.func3)
         3'b000: LB;
         3'b001: LH;
@@ -158,8 +153,7 @@ endfunction
 //
 // decode_lui
 //
-function DecodedInstruction decode_lui(Word encodedInstruction);
-    UtypeInstruction uTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_lui(UtypeInstruction uTypeInstruction);
     return DecodedInstruction{
         instructionType: LUI,
         source1: 0, // Unused
@@ -174,8 +168,7 @@ endfunction
 //
 // decode_op
 //
-function DecodedInstruction decode_op(Word encodedInstruction);
-    RtypeInstruction rTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_op(RtypeInstruction rTypeInstruction);
     // Assemble the alu operation code from the func3 and func7 fields of the instruction.
     let aluOperator = case(rTypeInstruction.func3)
         3'b000: (rTypeInstruction.func7[6] == 0 ? ADD : SUB);
@@ -203,8 +196,7 @@ endfunction
 //
 // decode_opimm
 //
-function DecodedInstruction decode_opimm(Word encodedInstruction);
-    ItypeInstruction iTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_opimm(ItypeInstruction iTypeInstruction);
     let aluOperator = case(iTypeInstruction.func3)
         3'b000: ADD;
         3'b001: SLL;
@@ -236,8 +228,7 @@ endfunction
 //
 // decode_store
 //
-function DecodedInstruction decode_store(Word encodedInstruction);
-    StypeInstruction sTypeInstruction = unpack(encodedInstruction);
+function DecodedInstruction decode_store(StypeInstruction sTypeInstruction);
     let storeOperator = case(sTypeInstruction.func3)
         3'b000: SB;
         3'b001: SH;
@@ -272,45 +263,59 @@ endfunction
 //
 // decode_system
 //
-function DecodedInstruction decode_system(Word encodedInstruction);
-    let systemOperator = case(encodedInstruction)
-        32'b00000000000000000000000001110011: ECALL;
-        32'b00000000000100000000000001110011: EBREAK;
-        default: UNSUPPORTED_SYSTEM_OPERATOR;
+function DecodedInstruction decode_system(ItypeInstruction iTypeInstruction);
+    return case({iTypeInstruction.immediate, iTypeInstruction.source1, iTypeInstruction.func3, iTypeInstruction.destination})
+        25'b000000000000_00000_000_00000: begin
+            DecodedInstruction{
+                instructionType: SYSTEM,
+                source1: 0,     // Unused
+                source2: 0,     // Unused
+                specific: tagged SystemInstruction SystemInstruction{
+                    operator: ECALL
+                }
+            };
+        end
+        25'b000000000001_00000_000_00000: begin
+            DecodedInstruction{
+                instructionType: SYSTEM,
+                source1: 0,     // Unused
+                source2: 0,     // Unused
+                specific: tagged SystemInstruction SystemInstruction{
+                    operator: EBREAK
+                }
+            };
+        end
+        default: begin
+            DecodedInstruction{
+                instructionType: UNSUPPORTED,
+                source1: 0,     // Unused
+                source2: 0,     // Unused
+                specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+            };
+        end
     endcase;
-
-    if (systemOperator == UNSUPPORTED_SYSTEM_OPERATOR) begin
-        return DecodedInstruction{
-            instructionType: UNSUPPORTED,
-            source1: 0,
-            source2: 0,
-            specific: tagged UnsupportedInstruction UnsupportedInstruction{}
-        };
-    end else begin
-        return DecodedInstruction{
-            instructionType: STORE,
-            source1: 0,     // Unused
-            source2: 0,     // Unused
-            specific: tagged SystemInstruction SystemInstruction{
-                operator: systemOperator
-            }
-        };    
-    end
 endfunction
 
 function DecodedInstruction decodeInstruction(Word rawInstruction);
+    BtypeInstruction bTypeInstruction = unpack(rawInstruction);
+    ItypeInstruction iTypeInstruction = unpack(rawInstruction);
+    JtypeInstruction jTypeInstruction = unpack(rawInstruction);
+    RtypeInstruction rTypeInstruction = unpack(rawInstruction);
+    StypeInstruction sTypeInstruction = unpack(rawInstruction);
+    UtypeInstruction uTypeInstruction = unpack(rawInstruction);
+
     return case(rawInstruction[6:0])
         // RV32I
-        7'b0000011: decode_load(rawInstruction);        // LOAD     (I-type)
-        7'b0010011: decode_opimm(rawInstruction);       // OPIMM    (I-type)
-        7'b0010111: decode_auipc(rawInstruction);       // AUIPC    (U-type)
-        7'b0100011: decode_store(rawInstruction);       // STORE    (S-type)
-        7'b0110011: decode_op(rawInstruction);          // OP       (R-type)
-        7'b0110111: decode_lui(rawInstruction);         // LUI      (U-type)
-        7'b1100011: decode_branch(rawInstruction);      // BRANCH   (B-type)
-        7'b1100111: decode_jalr(rawInstruction);        // JALR     (I-type)
-        7'b1101111: decode_jal(rawInstruction);         // JAL      (J-type)
-        7'b1110011: decode_system(rawInstruction);      // SYSTEM   (I-type)
+        7'b0000011: decode_load(iTypeInstruction);      // LOAD     (I-type)
+        7'b0010011: decode_opimm(iTypeInstruction);     // OPIMM    (I-type)
+        7'b0010111: decode_auipc(uTypeInstruction);     // AUIPC    (U-type)
+        7'b0100011: decode_store(sTypeInstruction);     // STORE    (S-type)
+        7'b0110011: decode_op(rTypeInstruction);        // OP       (R-type)
+        7'b0110111: decode_lui(uTypeInstruction);       // LUI      (U-type)
+        7'b1100011: decode_branch(bTypeInstruction);    // BRANCH   (B-type)
+        7'b1100111: decode_jalr(iTypeInstruction);      // JALR     (I-type)
+        7'b1101111: decode_jal(jTypeInstruction);       // JAL      (J-type)
+        7'b1110011: decode_system(iTypeInstruction);    // SYSTEM   (I-type)
         default: DecodedInstruction{
             instructionType: UNSUPPORTED,
             source1: 0,

@@ -1,3 +1,4 @@
+import ALU::*;
 import InstructionDecoder::*;
 import Instruction::*;
 import Common::*;
@@ -31,6 +32,11 @@ module mkInstructionDecoderTests(Empty);
 
                 if (decodedInstruction.specific.ALUInstruction.destination != 4) begin
                     $display("Instruction Decoder - Test %0d failed - Expected RD = 4, Found: %0d", testNumber, decodedInstruction.specific.ALUInstruction.destination);
+                    $fatal(); 
+                end
+
+                if (decodedInstruction.specific.ALUInstruction.operator != ADD) begin
+                    $display("Instruction Decoder - Test %0d failed - Expected Operator = ADD, Found: %0d", testNumber, decodedInstruction.specific.ALUInstruction.operator);
                     $fatal(); 
                 end
             end

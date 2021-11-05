@@ -10,7 +10,8 @@ typedef enum {
     SRA, 
     SRL,
     SUB, 
-    XOR} ALUOperator deriving(Bits, Eq);
+    XOR
+} ALUOperator deriving(Bits, Eq);
 
 interface ALU;
     method Word execute(Word operand1, Word operand2, ALUOperator operator);
