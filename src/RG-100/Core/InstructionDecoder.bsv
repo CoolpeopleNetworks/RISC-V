@@ -1,5 +1,5 @@
 import ALU::*;
-import Common::*;
+import RVTypes::*;
 import Instruction::*;
 
 /*  RV32IM:

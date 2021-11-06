@@ -1,4 +1,4 @@
-import Common::*;
+import RVTypes::*;
 import Vector::*;
 
 interface RegisterFile;

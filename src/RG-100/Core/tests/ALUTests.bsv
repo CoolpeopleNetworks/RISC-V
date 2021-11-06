@@ -1,5 +1,5 @@
 import ALU::*;
-import Common::*;
+import RVTypes::*;
 
 (* synthesize *)
 module mkALUTests(Empty);

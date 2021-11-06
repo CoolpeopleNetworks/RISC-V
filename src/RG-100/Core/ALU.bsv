@@ -1,4 +1,4 @@
-import Common::*;
+import RVTypes::*;
 
 typedef enum {
     ADD,
