@@ -1,10 +1,11 @@
 import RVTypes::*;
+import RVRegisterFile::*;
+import RVCSRFile::*;
+
 import Instruction::*;
 
 import InstructionDecoder::*;
 import InstructionExecutor::*;
-
-import RegisterFile::*;
 
 import GetPut::*;
 import ClientServer::*;
@@ -40,6 +41,11 @@ module mkCore#(
     )(Core);
 
     //
+    // Status Registers
+    //
+    RVCSRFile                   csrFile <- mkRVCSRFile();
+
+    //
     // Program Counter
     //
     Reg#(ProgramCounter)        pc <- mkReg(0);
@@ -47,7 +53,7 @@ module mkCore#(
     //
     // Register File
     //
-    RegisterFile                registerFile <- mkRegisterFile();
+    RVRegisterFile              registerFile <- mkRVRegisterFile();
 
     //
     // Instruction Decoder

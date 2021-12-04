@@ -1,11 +1,9 @@
 set(SOURCE_FILES 
     ALU.bsv
     Core.bsv
-    CSRFile.bsv
     Instruction.bsv
     InstructionDecoder.bsv
     InstructionExecutor.bsv
-    RegisterFile.bsv
 )
 
 add_library(Core STATIC ${SOURCE_FILES})
