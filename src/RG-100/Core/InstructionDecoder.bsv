@@ -1,4 +1,5 @@
 import ALU::*;
+import FIFOF::*;
 import RVTypes::*;
 import Instruction::*;
 
@@ -30,10 +31,10 @@ function DecodedInstruction decode_auipc(UtypeInstruction uTypeInstruction);
 
     return DecodedInstruction{
         instructionType: AUIPC,
-        source1: 0, // Unused
-        source2: 0, // Unused
+        rs1: 0, // Unused
+        rs2: 0, // Unused
         specific: tagged AUIPCInstruction AUIPCInstruction{
-            destination: uTypeInstruction.destination,
+            rd: uTypeInstruction.rd,
             offset: offset
         }
     };
@@ -62,15 +63,15 @@ function DecodedInstruction decode_branch(BtypeInstruction bTypeInstruction);
     if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
         return DecodedInstruction{
             instructionType: UNSUPPORTED,
-            source1: 0,
-            source2: 0,
+            rs1: 0,
+            rs2: 0,
             specific: tagged UnsupportedInstruction UnsupportedInstruction{}
         };
     end else begin
         return DecodedInstruction{
             instructionType: BRANCH,
-            source1: bTypeInstruction.source1,
-            source2: bTypeInstruction.source2,
+            rs1: bTypeInstruction.rs1,
+            rs2: bTypeInstruction.rs2,
             specific: tagged BranchInstruction BranchInstruction{
                 offset: offset,
                 operator: branchOperator
@@ -92,10 +93,10 @@ function DecodedInstruction decode_jal(JtypeInstruction jTypeInstruction);
 
     return DecodedInstruction{
         instructionType: JAL,
-        source1: 0, // Unused
-        source2: 0, // Unused
+        rs1: 0, // Unused
+        rs2: 0, // Unused
         specific: tagged JALInstruction JALInstruction{
-            destination: jTypeInstruction.returnSave,
+            rd: jTypeInstruction.returnSave,
             offset: offset
         }
     };
@@ -107,10 +108,10 @@ endfunction
 function DecodedInstruction decode_jalr(ItypeInstruction iTypeInstruction);
     return DecodedInstruction{
         instructionType: JALR,
-        source1: iTypeInstruction.source1,
-        source2: 0, // Unused
+        rs1: iTypeInstruction.rs1,
+        rs2: 0, // Unused
         specific: tagged JALRInstruction JALRInstruction{
-            destination: iTypeInstruction.destination,
+            rd: iTypeInstruction.rd,
             offset: iTypeInstruction.immediate
         }
     };
@@ -132,18 +133,18 @@ function DecodedInstruction decode_load(ItypeInstruction iTypeInstruction);
     if (loadOperator == UNSUPPORTED_LOAD_OPERATOR) begin
         return DecodedInstruction{
             instructionType: UNSUPPORTED,
-            source1: 0,
-            source2: 0,
+            rs1: 0,
+            rs2: 0,
             specific: tagged UnsupportedInstruction UnsupportedInstruction{}
         };
     end else begin
         return DecodedInstruction{
             instructionType: LOAD,
-            source1: iTypeInstruction.source1,
-            source2: 0, // Unused
+            rs1: iTypeInstruction.rs1,
+            rs2: 0, // Unused
             specific: tagged LoadInstruction LoadInstruction{
                 offset: iTypeInstruction.immediate,
-                destination: iTypeInstruction.destination,
+                rd: iTypeInstruction.rd,
                 operator: loadOperator
             }
         };    
@@ -156,10 +157,10 @@ endfunction
 function DecodedInstruction decode_lui(UtypeInstruction uTypeInstruction);
     return DecodedInstruction{
         instructionType: LUI,
-        source1: 0, // Unused
-        source2: 0, // Unused
+        rs1: 0, // Unused
+        rs2: 0, // Unused
         specific: tagged LUIInstruction LUIInstruction{
-            destination: uTypeInstruction.destination,
+            rd: uTypeInstruction.rd,
             immediate: uTypeInstruction.immediate31_12
         }
     };
@@ -183,10 +184,10 @@ function DecodedInstruction decode_op(RtypeInstruction rTypeInstruction);
 
     return DecodedInstruction{
         instructionType: OP,
-        source1: rTypeInstruction.source1,
-        source2: rTypeInstruction.source2,
+        rs1: rTypeInstruction.rs1,
+        rs2: rTypeInstruction.rs2,
         specific: tagged ALUInstruction ALUInstruction{
-            destination: rTypeInstruction.destination,
+            rd: rTypeInstruction.rd,
             operator: aluOperator,
             immediate: 0 //Unused
         }
@@ -215,10 +216,10 @@ function DecodedInstruction decode_opimm(ItypeInstruction iTypeInstruction);
 
     return DecodedInstruction{
         instructionType: OPIMM,
-        source1: iTypeInstruction.source1,
-        source2: 0, // Unused
+        rs1: iTypeInstruction.rs1,
+        rs2: 0, // Unused
         specific: tagged ALUInstruction ALUInstruction{
-            destination: iTypeInstruction.destination,
+            rd: iTypeInstruction.rd,
             operator: aluOperator,
             immediate: immediate
         }
@@ -239,8 +240,8 @@ function DecodedInstruction decode_store(StypeInstruction sTypeInstruction);
     if (storeOperator == UNSUPPORTED_STORE_OPERATOR) begin
         return DecodedInstruction{
             instructionType: UNSUPPORTED,
-            source1: 0,
-            source2: 0,
+            rs1: 0,
+            rs2: 0,
             specific: tagged UnsupportedInstruction UnsupportedInstruction{}
         };
     end else begin
@@ -250,8 +251,8 @@ function DecodedInstruction decode_store(StypeInstruction sTypeInstruction);
 
         return DecodedInstruction{
             instructionType: STORE,
-            source1: sTypeInstruction.source1,
-            source2: sTypeInstruction.source2,
+            rs1: sTypeInstruction.rs1,
+            rs2: sTypeInstruction.rs2,
             specific: tagged StoreInstruction StoreInstruction{
                 offset: offset,
                 operator: storeOperator
@@ -264,12 +265,12 @@ endfunction
 // decode_system
 //
 function DecodedInstruction decode_system(ItypeInstruction iTypeInstruction);
-    return case({iTypeInstruction.immediate, iTypeInstruction.source1, iTypeInstruction.func3, iTypeInstruction.destination})
+    return case({iTypeInstruction.immediate, iTypeInstruction.rs1, iTypeInstruction.func3, iTypeInstruction.rd})
         25'b000000000000_00000_000_00000: begin
             DecodedInstruction{
                 instructionType: SYSTEM,
-                source1: 0,     // Unused
-                source2: 0,     // Unused
+                rs1: 0,     // Unused
+                rs2: 0,     // Unused
                 specific: tagged SystemInstruction SystemInstruction{
                     operator: ECALL
                 }
@@ -278,8 +279,8 @@ function DecodedInstruction decode_system(ItypeInstruction iTypeInstruction);
         25'b000000000001_00000_000_00000: begin
             DecodedInstruction{
                 instructionType: SYSTEM,
-                source1: 0,     // Unused
-                source2: 0,     // Unused
+                rs1: 0,     // Unused
+                rs2: 0,     // Unused
                 specific: tagged SystemInstruction SystemInstruction{
                     operator: EBREAK
                 }
@@ -288,8 +289,8 @@ function DecodedInstruction decode_system(ItypeInstruction iTypeInstruction);
         default: begin
             DecodedInstruction{
                 instructionType: UNSUPPORTED,
-                source1: 0,     // Unused
-                source2: 0,     // Unused
+                rs1: 0,     // Unused
+                rs2: 0,     // Unused
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end
@@ -318,20 +319,25 @@ function DecodedInstruction decodeInstruction(Word rawInstruction);
         7'b1110011: decode_system(iTypeInstruction);    // SYSTEM   (I-type)
         default: DecodedInstruction{
             instructionType: UNSUPPORTED,
-            source1: 0,
-            source2: 0,
+            rs1: 0,
+            rs2: 0,
             specific: tagged UnsupportedInstruction UnsupportedInstruction{}
         };
     endcase;
 endfunction
 
 interface InstructionDecoder;
-    method DecodedInstruction decode(Word rawInstruction);
 endinterface
 
-(* synthesize *)
-module mkInstructionDecoder(InstructionDecoder);
-    method DecodedInstruction decode(Word rawInstruction);
-        return decodeInstruction(rawInstruction);
-    endmethod
+module mkInstructionDecoder#(
+    FIFOF#(Word32) instructionQueue,
+    FIFOF#(DecodedInstruction) outputQueue
+)(InstructionDecoder);
+    rule decode;
+        let encodedInstruction = instructionQueue.first();
+        instructionQueue.deq();
+
+        let decodedInstruction = decodeInstruction(encodedInstruction);
+        outputQueue.enq(decodedInstruction);
+    endrule
 endmodule

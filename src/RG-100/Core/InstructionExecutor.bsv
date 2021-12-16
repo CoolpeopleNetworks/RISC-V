@@ -1,14 +1,19 @@
 import ALU::*;
+import FIFOF::*;
+import RVRegisterFile::*;
 import RVTypes::*;
 import Instruction::*;
 
 interface InstructionExecutor;
-    method ExecutedInstruction executeDecodedInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1, Word rs2);
     method Action enableTracing();
 endinterface
 
-(* synthesize *)
-module mkInstructionExecutor(InstructionExecutor);
+module mkInstructionExecutor#(
+    Reg#(ProgramCounter) programCounter, 
+    RVRegisterFile registerFile,
+    FIFOF#(DecodedInstruction) decodedInstructionQueue,
+    FIFOF#(ExecutedInstruction) outputQueue
+)(InstructionExecutor);
     Reg#(Bool) trace <- mkReg(False);
 
     //
@@ -23,7 +28,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
-            writeBack: decodedInstruction.specific.AUIPCInstruction.destination,
+            writeBack: decodedInstruction.specific.AUIPCInstruction.rd,
             writeBackData: currentPc + decodedInstruction.specific.AUIPCInstruction.offset,
 
             byteMask: 0,            // Unused
@@ -74,7 +79,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + signExtend(decodedInstruction.specific.JALInstruction.offset),
-            writeBack: decodedInstruction.specific.JALInstruction.destination,
+            writeBack: decodedInstruction.specific.JALInstruction.rd,
             writeBackData: currentPc + 4,
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
@@ -93,7 +98,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: effectiveAddress,
-            writeBack: decodedInstruction.specific.JALRInstruction.destination,
+            writeBack: decodedInstruction.specific.JALRInstruction.rd,
             writeBackData: currentPc + 4,
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
@@ -148,7 +153,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
-            writeBack: decodedInstruction.specific.LUIInstruction.destination,
+            writeBack: decodedInstruction.specific.LUIInstruction.rd,
             writeBackData: 0,       // Will be set when the memory request returns.
             byteMask: byteMask,
             effectiveAddress: effectiveAddress,
@@ -165,7 +170,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
-            writeBack: decodedInstruction.specific.LUIInstruction.destination,
+            writeBack: decodedInstruction.specific.LUIInstruction.rd,
             writeBackData: data,
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
@@ -180,7 +185,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
-            writeBack: decodedInstruction.specific.ALUInstruction.destination,
+            writeBack: decodedInstruction.specific.ALUInstruction.rd,
             writeBackData: alu.execute(rs1, rs2, decodedInstruction.specific.ALUInstruction.operator),
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
@@ -195,7 +200,7 @@ module mkInstructionExecutor(InstructionExecutor);
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
-            writeBack: decodedInstruction.specific.ALUInstruction.destination,
+            writeBack: decodedInstruction.specific.ALUInstruction.rd,
             writeBackData: alu.execute_immediate(rs1, decodedInstruction.specific.ALUInstruction.immediate, decodedInstruction.specific.ALUInstruction.operator),
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
@@ -233,7 +238,7 @@ module mkInstructionExecutor(InstructionExecutor);
         };
     endfunction
 
-    method ExecutedInstruction executeDecodedInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1, Word rs2);
+    function ExecutedInstruction executeDecodedInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1, Word rs2);
         return case(decodedInstruction.instructionType)
             AUIPC:  return executeAUIPCInstruction(decodedInstruction, currentPc);
             BRANCH: return executeBRANCHInstruction(decodedInstruction, currentPc, rs1, rs2);
@@ -247,7 +252,18 @@ module mkInstructionExecutor(InstructionExecutor);
             SYSTEM: return executeSYSTEMInstruction(decodedInstruction, currentPc);
             UNSUPPORTED: return executeUNSUPPORTEDInstruction(decodedInstruction, currentPc);
         endcase;
-    endmethod
+    endfunction
+
+    rule execute;
+        let decodedInstruction = decodedInstructionQueue.first();
+        decodedInstructionQueue.deq();
+
+        Word rs1 = registerFile.read1(decodedInstruction.rs1);
+        Word rs2 = registerFile.read1(decodedInstruction.rs2);
+
+        let executedInstruction = executeDecodedInstruction(decodedInstruction, programCounter, rs1, rs2);
+        outputQueue.enq(executedInstruction);
+    endrule
 
     method Action enableTracing;
         trace <= True;

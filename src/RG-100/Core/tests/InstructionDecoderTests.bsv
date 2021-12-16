@@ -25,13 +25,13 @@ module mkInstructionDecoderTests(Empty);
                     $fatal(); 
                 end
 
-                if (decodedInstruction.source1 != 2) begin
-                    $display("Instruction Decoder - Test %0d failed - Expected RS1 = 2, Found: %0d", testNumber, decodedInstruction.source2);
+                if (decodedInstruction.rs1 != 2) begin
+                    $display("Instruction Decoder - Test %0d failed - Expected RS1 = 2, Found: %0d", testNumber, decodedInstruction.rs2);
                     $fatal(); 
                 end
 
-                if (decodedInstruction.specific.ALUInstruction.destination != 4) begin
-                    $display("Instruction Decoder - Test %0d failed - Expected RD = 4, Found: %0d", testNumber, decodedInstruction.specific.ALUInstruction.destination);
+                if (decodedInstruction.specific.ALUInstruction.rd != 4) begin
+                    $display("Instruction Decoder - Test %0d failed - Expected RD = 4, Found: %0d", testNumber, decodedInstruction.specific.ALUInstruction.rd);
                     $fatal(); 
                 end
 

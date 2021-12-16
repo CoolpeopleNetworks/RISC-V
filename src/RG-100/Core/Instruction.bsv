@@ -8,27 +8,27 @@ import ALU::*;
 // RV32I - R-type
 typedef struct {
     Bit#(7) func7;
-    RegisterIndex source2;
-    RegisterIndex source1;
+    RegisterIndex rs2;
+    RegisterIndex rs1;
     Bit#(3) func3;
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(7) opcode;
 } RtypeInstruction deriving(Bits, Eq);
 
 // RV32I - I-type
 typedef struct {
     Bit#(12) immediate;
-    RegisterIndex source1;
+    RegisterIndex rs1;
     Bit#(3) func3;
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(7) opcode;
 } ItypeInstruction deriving(Bits, Eq);
 
 // RV32I - S-type
 typedef struct {
     Bit#(7) immediate11_5;
-    RegisterIndex source2;
-    RegisterIndex source1;
+    RegisterIndex rs2;
+    RegisterIndex rs1;
     Bit#(3) func3;
     Bit#(5) immediate4_0;
     Bit#(7) opcode;
@@ -38,8 +38,8 @@ typedef struct {
 typedef struct {
     Bit#(1) immediate12;
     Bit#(6) immediate10_5;
-    RegisterIndex source2;
-    RegisterIndex source1;
+    RegisterIndex rs2;
+    RegisterIndex rs1;
     Bit#(3) func3;
     Bit#(4) immediate4_1;
     Bit#(1) immediate11;
@@ -49,7 +49,7 @@ typedef struct {
 // RV32I - U-type
 typedef struct {
     Bit#(20) immediate31_12;
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(7) opcode;
 } UtypeInstruction deriving(Bits, Eq);
 
@@ -67,7 +67,7 @@ typedef struct {
 // ALUInstruction
 //
 typedef struct {
-    RegisterIndex destination;
+    RegisterIndex rd;
     ALUOperator  operator;
     Bit#(12) immediate;
 } ALUInstruction deriving(Bits, Eq);
@@ -76,7 +76,7 @@ typedef struct {
 // AUIPCInstruction
 //
 typedef struct {
-    RegisterIndex destination;
+    RegisterIndex rd;
     Word offset;
 } AUIPCInstruction deriving(Bits, Eq);
 
@@ -102,7 +102,7 @@ typedef struct {
 // JALInstruction
 //
 typedef struct {
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(21) offset;    // NOTE: always two byte aligned.
 } JALInstruction deriving(Bits, Eq);
 
@@ -110,7 +110,7 @@ typedef struct {
 // JALRInstruction
 //
 typedef struct {
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(12) offset;    // NOTE: always two byte aligned.
 } JALRInstruction deriving(Bits, Eq);
 
@@ -127,7 +127,7 @@ typedef enum {
 } LoadOperator deriving(Bits, Eq);
 
 typedef struct {
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(12) offset;
     LoadOperator operator;
 } LoadInstruction deriving(Bits, Eq);
@@ -136,7 +136,7 @@ typedef struct {
 // LUIInstruction
 //
 typedef struct {
-    RegisterIndex destination;
+    RegisterIndex rd;
     Bit#(20) immediate;
 } LUIInstruction deriving(Bits, Eq);
 
@@ -192,8 +192,8 @@ typedef enum {
 
 typedef struct {
     InstructionType instructionType;    
-    RegisterIndex source1;
-    RegisterIndex source2;
+    RegisterIndex rs1;
+    RegisterIndex rs2;
     
     union tagged {
         ALUInstruction ALUInstruction;
