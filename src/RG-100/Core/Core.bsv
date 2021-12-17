@@ -1,5 +1,5 @@
-import RVBypass::*;
 import RVCSRFile::*;
+import RVRegisterBypass::*;
 import RVRegisterFile::*;
 import RVTypes::*;
 
@@ -13,7 +13,6 @@ import GetPut::*;
 import ClientServer::*;
 import Memory::*;
 import FIFOF::*;
-
 import MemUtil::*;
 import Port::*;
 
@@ -55,17 +54,8 @@ module mkCore#(
     //
     // Register File
     //
-    let bypassA = RVBypass{
-        state: BYPASS_STATE_EMPTY,
-        rd: ?,
-        value: ?
-    };
-
-    let bypassB = RVBypass{
-        state: BYPASS_STATE_EMPTY,
-        rd: ?,
-        value: ?
-    };
+    Wire#(RVRegisterBypass)     bypassA <- mkBypassWire();
+    Wire#(RVRegisterBypass)     bypassB <- mkBypassWire();
     RVRegisterFile              registerFile <- mkBypassedRegisterFile(bypassA, bypassB);
 
     //
@@ -83,6 +73,10 @@ module mkCore#(
     // Stage 3 - Instruction Execution
     FIFOF#(ExecutedInstruction) executedInstructionQueue <- mkFIFOF();
     InstructionExecutor         instructionExecutor <- mkInstructionExecutor(programCounter, registerFile, decodedInstructionQueue, executedInstructionQueue);
+
+    // Stage 4 - Memory Access
+
+    // Stage 5 - Register Writeback
 
     //
     // Tracing

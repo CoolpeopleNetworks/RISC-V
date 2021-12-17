@@ -220,6 +220,7 @@ typedef struct {
 
     // LOAD/Store specific data
     Word effectiveAddress;
+    Word alignedData;
     Bool misaligned;        // If True, LOAD/STORE instruction request address was misaligned.
     Bit#(4) byteMask;
 } ExecutedInstruction deriving(Bits, Eq);

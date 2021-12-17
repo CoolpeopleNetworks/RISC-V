@@ -1,10 +1,11 @@
-import RVBypass::*;
+import RVRegisterBypass::*;
 import RVRegisterFile::*;
 import RVTypes::*;
 
 module mkBypassedRegisterFile#(
-    RVBypass a,
-    RVBypass b)
+    Wire#(RVRegisterBypass) a,
+    Wire#(RVRegisterBypass) b
+)
 (RVRegisterFile);
 
     RVRegisterFile registerFile <- mkRVRegisterFile();

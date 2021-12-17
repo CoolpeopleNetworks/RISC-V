@@ -6,6 +6,7 @@ set(SOURCE_FILES
     InstructionDecoder.bsv
     InstructionExecutor.bsv
     InstructionFetcher.bsv
+    MemoryAccessor.bsv
 )
 
 add_library(Core STATIC ${SOURCE_FILES})

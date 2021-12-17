@@ -33,6 +33,7 @@ module mkInstructionExecutor#(
 
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -68,6 +69,7 @@ module mkInstructionExecutor#(
             writeBackData: 0,       // Unused
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -83,6 +85,7 @@ module mkInstructionExecutor#(
             writeBackData: currentPc + 4,
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -102,6 +105,7 @@ module mkInstructionExecutor#(
             writeBackData: currentPc + 4,
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -109,7 +113,7 @@ module mkInstructionExecutor#(
     //
     // LOAD
     //
-    function ExecutedInstruction executeLOADInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1);
+    function ExecutedInstruction executeLOADInstruction(DecodedInstruction decodedInstruction, ProgramCounter currentPc, Word rs1, Word rs2);
         let misaligned = False;
         let effectiveAddress = 0;
         Bit#(4) byteMask = 0;
@@ -150,6 +154,7 @@ module mkInstructionExecutor#(
             end
         endcase
 
+        let alignedData = rs2 << {effectiveAddress[1:0], 3'b0}; 
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             nextPc: currentPc + 4,
@@ -157,6 +162,7 @@ module mkInstructionExecutor#(
             writeBackData: 0,       // Will be set when the memory request returns.
             byteMask: byteMask,
             effectiveAddress: effectiveAddress,
+            alignedData: alignedData,
             misaligned: misaligned
         };
     endfunction
@@ -174,6 +180,7 @@ module mkInstructionExecutor#(
             writeBackData: data,
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -189,6 +196,7 @@ module mkInstructionExecutor#(
             writeBackData: alu.execute(rs1, rs2, decodedInstruction.specific.ALUInstruction.operator),
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -204,6 +212,7 @@ module mkInstructionExecutor#(
             writeBackData: alu.execute_immediate(rs1, decodedInstruction.specific.ALUInstruction.immediate, decodedInstruction.specific.ALUInstruction.operator),
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -219,6 +228,7 @@ module mkInstructionExecutor#(
             writeBackData: 0,       // Unused
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -234,6 +244,7 @@ module mkInstructionExecutor#(
             writeBackData: 0,       // Unused
             byteMask: 0,            // Unused
             effectiveAddress: 0,    // Unused
+            alignedData: 0,         // Unused
             misaligned: False       // Unused
         };
     endfunction
@@ -247,7 +258,7 @@ module mkInstructionExecutor#(
             OP:     return executeOPInstruction(decodedInstruction, currentPc, rs1, rs2);
             OPIMM:  return executeOPIMMInstruction(decodedInstruction, currentPc, rs1);
             LUI:    return executeLUIInstruction(decodedInstruction, currentPc);
-            LOAD:   return executeLOADInstruction(decodedInstruction, currentPc, rs1);
+            LOAD:   return executeLOADInstruction(decodedInstruction, currentPc, rs1, rs2);
             // STORE: Nothing to do
             SYSTEM: return executeSYSTEMInstruction(decodedInstruction, currentPc);
             UNSUPPORTED: return executeUNSUPPORTEDInstruction(decodedInstruction, currentPc);
