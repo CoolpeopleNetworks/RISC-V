@@ -20,15 +20,16 @@ endinterface
 module mkInstructionFetcher#(
     Reg#(Word) programCounter,
     ReadOnlyMemServerPort#(32, 2) instructionFetch,
-    FIFOF#(Word32) outputQueue
+    FIFOF#(Tuple2#(ProgramCounter, Word32)) outputQueue
 )(InstructionFetcher);
+    Reg#(Word) lastFetchedProgramCounter <- mkReg(0);
 
-    rule fetch;
+    rule fetch (programCounter != lastFetchedProgramCounter);
         instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
-        let encodedInstruction = instructionFetch.response.first();
+        let instructionResponse = instructionFetch.response.first();
         instructionFetch.response.deq();
 
-        outputQueue.enq(encodedInstruction.data);
+        outputQueue.enq(tuple2(programCounter, instructionResponse.data));
     endrule
 
     method InstructionFetcherOutput out;

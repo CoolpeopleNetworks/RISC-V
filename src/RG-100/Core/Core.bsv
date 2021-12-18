@@ -3,11 +3,14 @@ import RVRegisterBypass::*;
 import RVRegisterFile::*;
 import RVTypes::*;
 
-import BypassedRegisterFile::*;
 import Instruction::*;
+
+// Core stages
 import InstructionFetcher::*;
 import InstructionDecoder::*;
 import InstructionExecutor::*;
+import MemoryAccessor::*;
+import RegisterWriteback::*;
 
 import GetPut::*;
 import ClientServer::*;
@@ -54,30 +57,56 @@ module mkCore#(
     //
     // Register File
     //
-    Wire#(RVRegisterBypass)     bypassA <- mkBypassWire();
-    Wire#(RVRegisterBypass)     bypassB <- mkBypassWire();
-    RVRegisterFile              registerFile <- mkBypassedRegisterFile(bypassA, bypassB);
+    RVRegisterFile              registerFile <- mkRVRegisterFile();
+    Wire#(RVRegisterBypass)     executionStageBypass <- mkBypassWire();
+    Wire#(RVRegisterBypass)     memoryAccessStageBypass <- mkBypassWire();
 
     //
     // Stages
     //
 
     // Stage 1 - Instruction Fetch
-    FIFOF#(Word32)              encodedInstructionQueue <- mkFIFOF();
-    InstructionFetcher          instructionFetcher <- mkInstructionFetcher(programCounter, instructionFetchPort, encodedInstructionQueue);
+    FIFOF#(Tuple2#(ProgramCounter, Word32)) encodedInstructionQueue <- mkFIFOF();
+    InstructionFetcher instructionFetcher <- mkInstructionFetcher(
+        programCounter, 
+        instructionFetchPort, 
+        encodedInstructionQueue
+    );
 
     // Stage 2 - Instruction Decode
-    FIFOF#(DecodedInstruction)  decodedInstructionQueue <- mkFIFOF();
-    InstructionDecoder          instructionDecoder <- mkInstructionDecoder(encodedInstructionQueue, decodedInstructionQueue);
+    FIFOF#(DecodedInstruction) decodedInstructionQueue <- mkFIFOF();
+    InstructionDecoder instructionDecoder <- mkInstructionDecoder(
+        encodedInstructionQueue, 
+        registerFile, 
+        executionStageBypass, 
+        memoryAccessStageBypass, 
+        decodedInstructionQueue,
+        programCounter  // <- modified for next instruction
+    );
 
     // Stage 3 - Instruction Execution
     FIFOF#(ExecutedInstruction) executedInstructionQueue <- mkFIFOF();
-    InstructionExecutor         instructionExecutor <- mkInstructionExecutor(programCounter, registerFile, decodedInstructionQueue, executedInstructionQueue);
+    InstructionExecutor instructionExecutor <- mkInstructionExecutor(
+        decodedInstructionQueue, 
+        executionStageBypass, 
+        executedInstructionQueue
+    );
 
     // Stage 4 - Memory Access
+    FIFOF#(ExecutedInstruction) memoryAccessCompletedQueue <- mkFIFOF();
+    MemoryAccessor memoryAccessor <- mkMemoryAccessor(
+        executedInstructionQueue, 
+        dataMemory, 
+        memoryAccessStageBypass, 
+        memoryAccessCompletedQueue
+    );
 
     // Stage 5 - Register Writeback
-
+    RegisterWriteback registerWriteback <- mkRegisterWriteback(
+        memoryAccessCompletedQueue, 
+        registerFile
+    );
+    
     //
     // Tracing
     //

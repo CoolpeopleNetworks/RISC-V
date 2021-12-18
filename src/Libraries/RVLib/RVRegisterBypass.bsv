@@ -1,13 +1,6 @@
 import RVTypes::*;
 
-typedef enum {
-    BYPASS_STATE_EMPTY,
-    BYPASS_STATE_REGISTER_KNOWN,
-    BYPASS_STATE_VALUE_AVAILABLE
-} RVRegisterBypassState deriving(Bits, Eq);
-
 typedef struct {
-    RVRegisterBypassState state;
     RegisterIndex rd;
-    Word value;
+    Maybe#(Word) value;     // Valid if the value is available (not needing to be loaded from memory)
 } RVRegisterBypass deriving(Bits, Eq);

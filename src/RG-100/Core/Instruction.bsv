@@ -191,9 +191,10 @@ typedef enum {
 } InstructionType deriving(Bits, Eq);
 
 typedef struct {
+    ProgramCounter programCounter;
     InstructionType instructionType;    
-    RegisterIndex rs1;
-    RegisterIndex rs2;
+    Word rs1;
+    Word rs2;
     
     union tagged {
         ALUInstruction ALUInstruction;
@@ -210,17 +211,24 @@ typedef struct {
 } DecodedInstruction deriving(Bits, Eq);
 
 //
+// Writeback
+//
+typedef struct {
+    RegisterIndex rd;
+    Word value;
+} Writeback deriving(Bits, Eq);
+
+typedef struct {
+    Bit#(4) writeEnable;
+    Word effectiveAddress;
+    Word storeValue;
+} LoadStore deriving(Bits, Eq);
+
+//
 // Executed Instruction
 //
 typedef struct {
     DecodedInstruction decodedInstruction;
-    ProgramCounter nextPc;
-    RegisterIndex writeBack;
-    Word writeBackData;
-
-    // LOAD/Store specific data
-    Word effectiveAddress;
-    Word alignedData;
-    Bool misaligned;        // If True, LOAD/STORE instruction request address was misaligned.
-    Bit#(4) byteMask;
+    Maybe#(Writeback) writeBack;
+    Maybe#(LoadStore) loadStore;
 } ExecutedInstruction deriving(Bits, Eq);
