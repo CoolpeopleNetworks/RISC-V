@@ -38,7 +38,31 @@ module mkInstructionDecoder#(
 )(InstructionDecoder);
 
     function Maybe#(Word) readRegister(RegisterIndex rx);
-        return tagged Invalid;
+        // First, read the register.
+        let value = registerFile.read1(rx);
+        let valueResult = tagged Valid value;
+
+        if (rx != 0) begin
+            // Check bypassA
+            if (bypassA.rd == rx) begin
+                if (isValid(bypassA.value)) begin
+                    valueResult = bypassA.value;
+                end else begin
+                    valueResult = tagged Invalid;
+                end
+            end
+
+            // Check bypassB
+            if (bypassB.rd == rx) begin
+                if (isValid(bypassB.value)) begin
+                    valueResult = bypassB.value;
+                end else begin
+                    valueResult = tagged Invalid;
+                end
+            end
+        end
+        
+        return valueResult;
     endfunction
 
     //
