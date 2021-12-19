@@ -42,6 +42,7 @@ module mkInstructionDecoder#(
         let value = registerFile.read1(rx);
         let valueResult = tagged Valid value;
 
+        // If necessary, check the bypass structures
         if (rx != 0) begin
             // Check bypassA
             if (bypassA.rd == rx) begin
@@ -68,11 +69,11 @@ module mkInstructionDecoder#(
     //
     // decode_auipc
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_auipc(ProgramCounter programCounter, UtypeInstruction uTypeInstruction);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_auipc(ProgramCounter programCounter, UtypeInstruction uTypeInstruction);
         Word offset = 0;
         offset[31:12] = uTypeInstruction.immediate31_12;
 
-        return tuple2(
+        return tagged Valid tuple2(
             DecodedInstruction{
                 programCounter: programCounter,
                 instructionType: AUIPC,
@@ -88,7 +89,7 @@ module mkInstructionDecoder#(
     //
     // decode_branch
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_branch(ProgramCounter programCounter, BtypeInstruction bTypeInstruction, Word rs1, Word rs2);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_branch(ProgramCounter programCounter, BtypeInstruction bTypeInstruction);
         Bit#(13) offset = 0;
         offset[12] = bTypeInstruction.immediate12;
         offset[11] = bTypeInstruction.immediate11;
@@ -109,7 +110,7 @@ module mkInstructionDecoder#(
         let nextProgramCounter = programCounter;  // This will stall the pipeline
 
         if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
-            return tuple2(
+            return tagged Valid tuple2(
                 DecodedInstruction{
                     programCounter: programCounter,
                     instructionType: UNSUPPORTED,
@@ -119,25 +120,36 @@ module mkInstructionDecoder#(
                 }, programCounter + 4
             );
         end else begin
-            return tuple2(
-                DecodedInstruction{
-                    programCounter: programCounter,
-                    instructionType: BRANCH,
-                    rs1: rs1,
-                    rs2: rs2,
-                    specific: tagged BranchInstruction BranchInstruction{
-                        offset: offset,
-                        operator: branchOperator
-                    }
-                }, nextProgramCounter
-            );
+            let rs1Result = readRegister(bTypeInstruction.rs1);
+            let rs2Result = readRegister(bTypeInstruction.rs2);
+            let result = tagged Invalid;
+
+            if (isValid(rs1Result) != False && isValid(rs2Result) != False) begin
+                let rs1 = fromMaybe(?, rs1Result);
+                let rs2 = fromMaybe(?, rs2Result);
+
+                result = tagged Valid tuple2(
+                    DecodedInstruction{
+                        programCounter: programCounter,
+                        instructionType: BRANCH,
+                        rs1: rs1,
+                        rs2: rs2,
+                        specific: tagged BranchInstruction BranchInstruction{
+                            offset: offset,
+                            operator: branchOperator
+                        }
+                    }, nextProgramCounter
+                );
+            end
+
+            return result;
         end
     endfunction
 
     //
     // decode_jal
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_jal(ProgramCounter programCounter, JtypeInstruction jTypeInstruction);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_jal(ProgramCounter programCounter, JtypeInstruction jTypeInstruction);
         Bit#(21) offset = 0;
         offset[20] = jTypeInstruction.immediate20;
         offset[19:12] = jTypeInstruction.immediate19_12;
@@ -148,7 +160,7 @@ module mkInstructionDecoder#(
         // TODO: Fix - this will stall the pipeline.
         let nextProgramCounter = programCounter;
 
-        return tuple2(
+        return tagged Valid tuple2(
             DecodedInstruction{
                 programCounter: programCounter,
                 instructionType: JAL,
@@ -165,28 +177,33 @@ module mkInstructionDecoder#(
     //
     // decode_jalr
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_jalr(ProgramCounter programCounter, ItypeInstruction iTypeInstruction, Word rs1);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_jalr(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
         // TODO: calculate program counter - this will stall.
         let nextProgramCounter = programCounter;
+        let registerReadResult = readRegister(iTypeInstruction.rs1);
 
-        return tuple2(
-            DecodedInstruction{
-                programCounter: programCounter,
-                instructionType: JALR,
-                rs1: rs1,
-                rs2: 0, // Unused
-                specific: tagged JALRInstruction JALRInstruction{
-                    rd: iTypeInstruction.rd,
-                    offset: iTypeInstruction.immediate
-                }
-            }, nextProgramCounter
-        );
+        if (isValid(registerReadResult) == False) begin
+            return tagged Invalid;
+        end else begin
+            return tagged Valid tuple2(
+                DecodedInstruction{
+                    programCounter: programCounter,
+                    instructionType: JALR,
+                    rs1: fromMaybe(?, registerReadResult),
+                    rs2: 0, // Unused
+                    specific: tagged JALRInstruction JALRInstruction{
+                        rd: iTypeInstruction.rd,
+                        offset: iTypeInstruction.immediate
+                    }
+                }, nextProgramCounter
+            );
+        end
     endfunction
 
     //
     // decode_load
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_load(ProgramCounter programCounter, ItypeInstruction iTypeInstruction, Word rs1);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_load(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
         let loadOperator = case(iTypeInstruction.func3)
             3'b000: LB;
             3'b001: LH;
@@ -197,7 +214,7 @@ module mkInstructionDecoder#(
         endcase;
 
         if (loadOperator == UNSUPPORTED_LOAD_OPERATOR) begin
-            return tuple2(
+            return tagged Valid tuple2(
                 DecodedInstruction{
                     programCounter: programCounter,
                     instructionType: UNSUPPORTED,
@@ -207,27 +224,32 @@ module mkInstructionDecoder#(
                 }, programCounter + 4
             );
         end else begin
-            return tuple2(
-                DecodedInstruction{
-                    programCounter: programCounter,
-                    instructionType: LOAD,
-                    rs1: rs1,
-                    rs2: 0, // Unused
-                    specific: tagged LoadInstruction LoadInstruction{
-                        offset: iTypeInstruction.immediate,
-                        rd: iTypeInstruction.rd,
-                        operator: loadOperator
-                    }
-                }, programCounter + 4
-            );
+            let readRegisterResult = readRegister(iTypeInstruction.rs1);
+            if (isValid(readRegisterResult) == False) begin
+                return tagged Invalid;
+            end else begin
+                return tagged Valid tuple2(
+                    DecodedInstruction{
+                        programCounter: programCounter,
+                        instructionType: LOAD,
+                        rs1: fromMaybe(?, readRegisterResult),
+                        rs2: 0, // Unused
+                        specific: tagged LoadInstruction LoadInstruction{
+                            offset: iTypeInstruction.immediate,
+                            rd: iTypeInstruction.rd,
+                            operator: loadOperator
+                        }
+                    }, programCounter + 4
+                );
+            end
         end
     endfunction
 
     //
     // decode_lui
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_lui(ProgramCounter programCounter, UtypeInstruction uTypeInstruction);
-        return tuple2(
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_lui(ProgramCounter programCounter, UtypeInstruction uTypeInstruction);
+        return tagged Valid tuple2(
             DecodedInstruction{
                 programCounter: programCounter,
                 instructionType: LUI,
@@ -244,7 +266,7 @@ module mkInstructionDecoder#(
     //
     // decode_op
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_op(ProgramCounter programCounter, RtypeInstruction rTypeInstruction, Word rs1, Word rs2);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_op(ProgramCounter programCounter, RtypeInstruction rTypeInstruction);
         // Assemble the alu operation code from the func3 and func7 fields of the instruction.
         let aluOperator = case(rTypeInstruction.func3)
             3'b000: (rTypeInstruction.func7[6] == 0 ? ADD : SUB);
@@ -257,25 +279,32 @@ module mkInstructionDecoder#(
             3'b111: AND;
         endcase;
 
-        return tuple2(
-            DecodedInstruction{
-                programCounter: programCounter,
-                instructionType: OP,
-                rs1: rs1,
-                rs2: rs2,
-                specific: tagged ALUInstruction ALUInstruction{
-                    rd: rTypeInstruction.rd,
-                    operator: aluOperator,
-                    immediate: 0 //Unused
-                }
-            }, programCounter + 4
-        );
+        let rs1Result = readRegister(rTypeInstruction.rs1);
+        let rs2Result = readRegister(rTypeInstruction.rs2);
+
+        if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
+            return tagged Invalid;
+        end else begin
+            return tagged Valid tuple2(
+                DecodedInstruction{
+                    programCounter: programCounter,
+                    instructionType: OP,
+                    rs1: fromMaybe(?, rs1Result),
+                    rs2: fromMaybe(?, rs2Result),
+                    specific: tagged ALUInstruction ALUInstruction{
+                        rd: rTypeInstruction.rd,
+                        operator: aluOperator,
+                        immediate: 0 //Unused
+                    }
+                }, programCounter + 4
+            );
+            end
     endfunction
 
     //
     // decode_opimm
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_opimm(ProgramCounter programCounter, ItypeInstruction iTypeInstruction, Word rs1);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_opimm(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
         let aluOperator = case(iTypeInstruction.func3)
             3'b000: ADD;
             3'b001: SLL;
@@ -292,25 +321,30 @@ module mkInstructionDecoder#(
             immediate[10] = 0;
         end
 
-        return tuple2(
-            DecodedInstruction{
-                programCounter: programCounter,
-                instructionType: OPIMM,
-                rs1: rs1,
-                rs2: 0, // Unused
-                specific: tagged ALUInstruction ALUInstruction{
-                    rd: iTypeInstruction.rd,
-                    operator: aluOperator,
-                    immediate: immediate
-                }
-            }, programCounter + 4
-        );
+        let rs1Result = readRegister(iTypeInstruction.rs1);
+        if (isValid(rs1Result) == False) begin
+            return tagged Invalid;
+        end else begin
+            return tagged Valid tuple2(
+                DecodedInstruction{
+                    programCounter: programCounter,
+                    instructionType: OPIMM,
+                    rs1: fromMaybe(?, rs1Result),
+                    rs2: 0, // Unused
+                    specific: tagged ALUInstruction ALUInstruction{
+                        rd: iTypeInstruction.rd,
+                        operator: aluOperator,
+                        immediate: immediate
+                    }
+                }, programCounter + 4
+            );
+        end
     endfunction
 
     //
     // decode_store
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_store(ProgramCounter programCounter, StypeInstruction sTypeInstruction, Word rs1, Word rs2);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_store(ProgramCounter programCounter, StypeInstruction sTypeInstruction);
         let storeOperator = case(sTypeInstruction.func3)
             3'b000: SB;
             3'b001: SH;
@@ -319,7 +353,7 @@ module mkInstructionDecoder#(
         endcase;
 
         if (storeOperator == UNSUPPORTED_STORE_OPERATOR) begin
-            return tuple2(
+            return tagged Valid tuple2(
                 DecodedInstruction{
                 programCounter: programCounter,
                 instructionType: UNSUPPORTED,
@@ -333,28 +367,35 @@ module mkInstructionDecoder#(
             offset[11:5] = sTypeInstruction.immediate11_5;
             offset[4:0] = sTypeInstruction.immediate4_0;
 
-            return tuple2(
-                DecodedInstruction{
-                    programCounter: programCounter,
-                    instructionType: STORE,
-                    rs1: rs1,
-                    rs2: rs2,
-                    specific: tagged StoreInstruction StoreInstruction{
-                        offset: offset,
-                        operator: storeOperator
-                    }
-                }, programCounter + 4
-            );
+            let rs1Result = readRegister(sTypeInstruction.rs1);
+            let rs2Result = readRegister(sTypeInstruction.rs2);
+
+            if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
+                return tagged Invalid;
+            end else begin
+                return tagged Valid tuple2(
+                    DecodedInstruction{
+                        programCounter: programCounter,
+                        instructionType: STORE,
+                        rs1: fromMaybe(?, rs1Result),
+                        rs2: fromMaybe(?, rs2Result),
+                        specific: tagged StoreInstruction StoreInstruction{
+                            offset: offset,
+                            operator: storeOperator
+                        }
+                    }, programCounter + 4
+                );
+            end
         end
     endfunction
 
     //
     // decode_system
     //
-    function Tuple2#(DecodedInstruction, ProgramCounter) decode_system(ProgramCounter programCounter, ItypeInstruction iTypeInstruction, Word rs1);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decode_system(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
         return case({iTypeInstruction.immediate, iTypeInstruction.rs1, iTypeInstruction.func3, iTypeInstruction.rd})
             25'b000000000000_00000_000_00000: begin
-                tuple2(
+                tagged Valid tuple2(
                     DecodedInstruction{
                         programCounter: programCounter,
                         instructionType: SYSTEM,
@@ -367,7 +408,7 @@ module mkInstructionDecoder#(
                 );
             end
             25'b000000000001_00000_000_00000: begin
-                tuple2(
+                tagged Valid tuple2(
                     DecodedInstruction{
                         programCounter: programCounter,
                         instructionType: SYSTEM,
@@ -380,7 +421,7 @@ module mkInstructionDecoder#(
                 );
             end
             default: begin
-                tuple2(
+                tagged Valid tuple2(
                     DecodedInstruction{
                         programCounter: programCounter,
                         instructionType: UNSUPPORTED,
@@ -393,7 +434,7 @@ module mkInstructionDecoder#(
         endcase;
     endfunction
 
-    function Tuple2#(DecodedInstruction, ProgramCounter) decodeInstruction(ProgramCounter programCounter, Word rawInstruction, Word rs1, Word rs2);
+    function Maybe#(Tuple2#(DecodedInstruction, ProgramCounter)) decodeInstruction(ProgramCounter programCounter, Word rawInstruction);
         BtypeInstruction bTypeInstruction = unpack(rawInstruction);
         ItypeInstruction iTypeInstruction = unpack(rawInstruction);
         JtypeInstruction jTypeInstruction = unpack(rawInstruction);
@@ -403,17 +444,17 @@ module mkInstructionDecoder#(
 
         return case(rawInstruction[6:0])
             // RV32I
-            7'b0000011: decode_load(programCounter, iTypeInstruction, rs1);         // LOAD     (I-type)
-            7'b0010011: decode_opimm(programCounter, iTypeInstruction, rs1);        // OPIMM    (I-type)
-            7'b0010111: decode_auipc(programCounter, uTypeInstruction);             // AUIPC    (U-type)
-            7'b0100011: decode_store(programCounter, sTypeInstruction, rs1, rs2);   // STORE    (S-type)
-            7'b0110011: decode_op(programCounter, rTypeInstruction, rs1, rs2);      // OP       (R-type)
-            7'b0110111: decode_lui(programCounter, uTypeInstruction);               // LUI      (U-type)
-            7'b1100011: decode_branch(programCounter, bTypeInstruction, rs1, rs2);  // BRANCH   (B-type)
-            7'b1100111: decode_jalr(programCounter, iTypeInstruction, rs1);         // JALR     (I-type)
-            7'b1101111: decode_jal(programCounter, jTypeInstruction);               // JAL      (J-type)
-            7'b1110011: decode_system(programCounter, iTypeInstruction, rs1);       // SYSTEM   (I-type)
-            default: tuple2(
+            7'b0000011: decode_load(programCounter, iTypeInstruction);      // LOAD     (I-type)
+            7'b0010011: decode_opimm(programCounter, iTypeInstruction);     // OPIMM    (I-type)
+            7'b0010111: decode_auipc(programCounter, uTypeInstruction);     // AUIPC    (U-type)
+            7'b0100011: decode_store(programCounter, sTypeInstruction);     // STORE    (S-type)
+            7'b0110011: decode_op(programCounter, rTypeInstruction);        // OP       (R-type)
+            7'b0110111: decode_lui(programCounter, uTypeInstruction);       // LUI      (U-type)
+            7'b1100011: decode_branch(programCounter, bTypeInstruction);    // BRANCH   (B-type)
+            7'b1100111: decode_jalr(programCounter, iTypeInstruction);      // JALR     (I-type)
+            7'b1101111: decode_jal(programCounter, jTypeInstruction);       // JAL      (J-type)
+            7'b1110011: decode_system(programCounter, iTypeInstruction);    // SYSTEM   (I-type)
+            default: tagged Valid tuple2(
                 DecodedInstruction{
                     programCounter: programCounter,
                     instructionType: UNSUPPORTED,
@@ -427,39 +468,21 @@ module mkInstructionDecoder#(
 
     rule decode;
         // Extract the program co0unter and encoded instruction from the queue.
-
-        // NOTE: The item isn't dequeued until the register reads succeed.  This 
-        //       will stall the pipeline while waiting for register reads that have
-        //       to go to main memory.
         let queueItem = instructionQueue.first();
 
+        let programCounter = tpl_1(queueItem);
         let encodedInstruction = tpl_2(queueItem);
 
-        // Extract RS1 and RS2 indices from the instruction.   For some instructions,
-        // this will be unnecessary (or even correct) but reading them now will have
-        // no affect in those cases.
-        let rs1Index = encodedInstruction[19:15];
-        let rs2Index = encodedInstruction[24:20];
-
-        // Read the RS1 and RS2 registers.  It's possible the data in the registers
-        // isn't available yet (if coming from a memory access).  If that's the case
-        // the pipeline will stall.
-        let rs1ReadResult = readRegister(rs1Index);
-        let rs2ReadResult = readRegister(rs2Index);
-
-        if (isValid(rs1ReadResult) != False && isValid(rs2ReadResult) != False) begin
+        // Attempt to decode the instruction.  If register reads are blocked waiting
+        // for data (memory reads), this will return tagged invalid.
+        let decodeResult = decodeInstruction(programCounter, encodedInstruction);
+        if (isValid(decodeResult)) begin
             instructionQueue.deq();
 
-            let programCounter = tpl_1(queueItem);
-            let rs1 = fromMaybe(?, rs1ReadResult);
-            let rs2 = fromMaybe(?, rs2ReadResult);
+            nextProgramCounter <= tpl_2(fromMaybe(?, decodeResult));
 
-            // Decode the instruction returning that as well as the next program counter.
-            let decodeResult = decodeInstruction(programCounter, encodedInstruction, rs1, rs2);
-            nextProgramCounter <= tpl_2(decodeResult);
-
-            // Send the current program counter and decode result to the output queue.
-            outputQueue.enq(tpl_1(decodeResult));
+            // Send the decode result to the output queue.
+            outputQueue.enq(tpl_1(fromMaybe(?, decodeResult)));
         end
     endrule
 endmodule
