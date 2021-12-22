@@ -27,7 +27,7 @@ interface Core;
 endinterface
 
 //
-// Pipeline Stages (NOT CURRENTLY IMPLEMENTED)
+// Pipeline Stages
 // 1. Instruction Fetch
 //      - In this stage CPU reads instructions from memory address located in the Program Counter.
 // 2. Instruction Decode
@@ -42,13 +42,7 @@ endinterface
 module mkCore#(
         ReadOnlyMemServerPort#(32, 2) instructionFetchPort,
         AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory
-    )(Core);
-
-    //
-    // Status Registers
-    //
-    RVCSRFile                   csrFile <- mkRVCSRFile();
-
+)(Core);
     //
     // Program Counter
     //
