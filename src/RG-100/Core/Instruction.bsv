@@ -193,7 +193,7 @@ typedef enum {
 typedef struct {
     ProgramCounter programCounter;
     ProgramCounter nextProgramCounter;  // counter *after* this instruction
-    InstructionType instructionType;    
+    InstructionType instructionType;
     Word rs1;
     Word rs2;
     

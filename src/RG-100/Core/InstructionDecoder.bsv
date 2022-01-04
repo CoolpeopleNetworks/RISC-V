@@ -1,6 +1,6 @@
 import ALU::*;
 import FIFOF::*;
-import RVRegisterBypass::*;
+import RVOperandForward::*;
 import RVRegisterFile::*;
 import RVTypes::*;
 import Instruction::*;
@@ -31,35 +31,34 @@ endinterface
 module mkInstructionDecoder#(
     FIFOF#(Tuple2#(ProgramCounter, Word32)) instructionQueue,
     RVRegisterFile registerFile,
-    Wire#(RVRegisterBypass) bypassA,
-    Wire#(RVRegisterBypass) bypassB,
+    Wire#(RVOperandForward) operandForward1,
+    Wire#(RVOperandForward) operandForward2,
     FIFOF#(DecodedInstruction) outputQueue,
     Reg#(ProgramCounter) nextProgramCounter     // <- Modified for next instruction.
 )(InstructionDecoder);
 
     // 
-    // readRegister() - also check bypasses.
+    // readRegister() - also check any operand forwarding.
     //
     function Maybe#(Word) readRegister(RegisterIndex rx);
         // First, read the register.
         let value = registerFile.read1(rx);
         let valueResult = tagged Valid value;
 
-        // If necessary, check the bypass structures
+        // If necessary, check forwarded operands from later stages
         if (rx != 0) begin
-            // Check bypassA
-            if (bypassA.rd == rx) begin
-                if (isValid(bypassA.value)) begin
-                    valueResult = bypassA.value;
+            if (operandForward1.rd == rx) begin
+                if (isValid(operandForward1.value)) begin
+                    valueResult = operandForward1.value;
                 end else begin
                     valueResult = tagged Invalid;
                 end
             end
 
             // Check bypassB
-            if (bypassB.rd == rx) begin
-                if (isValid(bypassB.value)) begin
-                    valueResult = bypassB.value;
+            if (operandForward2.rd == rx) begin
+                if (isValid(operandForward2.value)) begin
+                    valueResult = operandForward2.value;
                 end else begin
                     valueResult = tagged Invalid;
                 end
@@ -74,8 +73,8 @@ module mkInstructionDecoder#(
     //
     function Bool predict_branch(Word programCounter, Word targetAddress);
         // Simple static branch predictor
-        // Predicted taken if target address is less (backward branch) than
-        // program counter, otherwise not-taken (forward branch).
+        // Predicted taken if target address is smaller than the program counter
+        // (backward branch), otherwise (forward branch) predicted not taken.
         return (targetAddress < programCounter ? True : False);
     endfunction
 
@@ -124,38 +123,26 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: nextProgramCounter,
                 instructionType: UNSUPPORTED,
-                rs1: ?,
-                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
-            let rs1Result = readRegister(bTypeInstruction.rs1);
-            let rs2Result = readRegister(bTypeInstruction.rs2);
             let result = tagged Invalid;
 
-            // Branch prediction
+            // Branch prediction (the signed offset is relative to rs1 but since
+            // that's not available, we ignore it)
             let targetAddress = programCounter + signExtend(offset * 2);
             let isTaken = predict_branch(programCounter, targetAddress);
             let nextProgramCounter = (isTaken ? targetAddress : programCounter + 4);
 
-            if (isValid(rs1Result) != False && isValid(rs2Result) != False) begin
-                let rs1 = fromMaybe(?, rs1Result);
-                let rs2 = fromMaybe(?, rs2Result);
-
-                result = tagged Valid DecodedInstruction{
-                    programCounter: programCounter,
-                    nextProgramCounter: nextProgramCounter,
-                    instructionType: BRANCH,
-                    rs1: rs1,
-                    rs2: rs2,
-                    specific: tagged BranchInstruction BranchInstruction{
-                        offset: offset,
-                        operator: branchOperator
-                    }
-                };
-            end
-
-            return result;
+            return tagged Valid DecodedInstruction{
+                programCounter: programCounter,
+                nextProgramCounter: nextProgramCounter,
+                instructionType: BRANCH,
+                specific: tagged BranchInstruction BranchInstruction{
+                    offset: offset,
+                    operator: branchOperator
+                }
+            };
         end
     endfunction
 
@@ -174,8 +161,6 @@ module mkInstructionDecoder#(
             programCounter: programCounter,
             nextProgramCounter: programCounter + signExtend(offset * 2),
             instructionType: JAL,
-            rs1: ?,
-            rs2: ?,
             specific: tagged JALInstruction JALInstruction{
                 rd: jTypeInstruction.returnSave,
                 offset: offset
@@ -187,6 +172,8 @@ module mkInstructionDecoder#(
     // decode_jalr
     //
     function Maybe#(DecodedInstruction) decode_jalr(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
+        // NOTE: This might stall the pipeline if the register
+        //       isn't available. 
         let registerReadResult = readRegister(iTypeInstruction.rs1);
 
         if (isValid(registerReadResult) == False) begin
@@ -200,8 +187,6 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: targetAddress,
                 instructionType: JALR,
-                rs1: rs1,
-                rs2: ?,
                 specific: tagged JALRInstruction JALRInstruction{
                     rd: iTypeInstruction.rd,
                     offset: iTypeInstruction.immediate
@@ -223,33 +208,26 @@ module mkInstructionDecoder#(
             default: UNSUPPORTED_LOAD_OPERATOR;
         endcase;
 
+        let nextProgramCounter = programCounter + 4;
+
         if (loadOperator == UNSUPPORTED_LOAD_OPERATOR) begin
             return tagged Valid DecodedInstruction{
                 programCounter: programCounter,
-                nextProgramCounter: programCounter + 4,
+                nextProgramCounter: nextProgramCounter,
                 instructionType: UNSUPPORTED,
-                rs1: ?,
-                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
-            let readRegisterResult = readRegister(iTypeInstruction.rs1);
-            if (isValid(readRegisterResult) == False) begin
-                return tagged Invalid;
-            end else begin
-                return tagged Valid DecodedInstruction{
-                    programCounter: programCounter,
-                    nextProgramCounter: programCounter + 4,
-                    instructionType: LOAD,
-                    rs1: fromMaybe(?, readRegisterResult),
-                    rs2: ?,
-                    specific: tagged LoadInstruction LoadInstruction{
-                        offset: iTypeInstruction.immediate,
-                        rd: iTypeInstruction.rd,
-                        operator: loadOperator
-                    }
-                };
-            end
+            return tagged Valid DecodedInstruction{
+                programCounter: programCounter,
+                nextProgramCounter: nextProgramCounter,
+                instructionType: LOAD,
+                specific: tagged LoadInstruction LoadInstruction{
+                    offset: iTypeInstruction.immediate,
+                    rd: iTypeInstruction.rd,
+                    operator: loadOperator
+                }
+            };
         end
     endfunction
 
@@ -261,8 +239,6 @@ module mkInstructionDecoder#(
             programCounter: programCounter,
             nextProgramCounter: programCounter + 4,
             instructionType: LUI,
-            rs1: ?,
-            rs2: ?,
             specific: tagged LUIInstruction LUIInstruction{
                 rd: uTypeInstruction.rd,
                 immediate: uTypeInstruction.immediate31_12
@@ -286,25 +262,16 @@ module mkInstructionDecoder#(
             3'b111: AND;
         endcase;
 
-        let rs1Result = readRegister(rTypeInstruction.rs1);
-        let rs2Result = readRegister(rTypeInstruction.rs2);
-
-        if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
-            return tagged Invalid;
-        end else begin
-            return tagged Valid DecodedInstruction{
-                programCounter: programCounter,
-                nextProgramCounter: programCounter + 4,
-                instructionType: OP,
-                rs1: fromMaybe(?, rs1Result),
-                rs2: fromMaybe(?, rs2Result),
-                specific: tagged ALUInstruction ALUInstruction{
-                    rd: rTypeInstruction.rd,
-                    operator: aluOperator,
-                    immediate: ?
-                }
-            };
-            end
+        return tagged Valid DecodedInstruction{
+            programCounter: programCounter,
+            nextProgramCounter: programCounter + 4,
+            instructionType: OP,
+            specific: tagged ALUInstruction ALUInstruction{
+                rd: rTypeInstruction.rd,
+                operator: aluOperator,
+                immediate: ?
+            }
+        };
     endfunction
 
     //
@@ -327,23 +294,16 @@ module mkInstructionDecoder#(
             immediate[10] = 0;
         end
 
-        let rs1Result = readRegister(iTypeInstruction.rs1);
-        if (isValid(rs1Result) == False) begin
-            return tagged Invalid;
-        end else begin
-            return tagged Valid DecodedInstruction{
-                programCounter: programCounter,
-                nextProgramCounter: programCounter + 4,
-                instructionType: OPIMM,
-                rs1: fromMaybe(?, rs1Result),
-                rs2: ?,
-                specific: tagged ALUInstruction ALUInstruction{
-                    rd: iTypeInstruction.rd,
-                    operator: aluOperator,
-                    immediate: immediate
-                }
-            };
-        end
+        return tagged Valid DecodedInstruction{
+            programCounter: programCounter,
+            nextProgramCounter: programCounter + 4,
+            instructionType: OPIMM,
+            specific: tagged ALUInstruction ALUInstruction{
+                rd: iTypeInstruction.rd,
+                operator: aluOperator,
+                immediate: immediate
+            }
+        };
     endfunction
 
     //
@@ -362,8 +322,6 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
                 instructionType: UNSUPPORTED,
-                rs1: ?,
-                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
@@ -371,24 +329,15 @@ module mkInstructionDecoder#(
             offset[11:5] = sTypeInstruction.immediate11_5;
             offset[4:0] = sTypeInstruction.immediate4_0;
 
-            let rs1Result = readRegister(sTypeInstruction.rs1);
-            let rs2Result = readRegister(sTypeInstruction.rs2);
-
-            if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
-                return tagged Invalid;
-            end else begin
-                return tagged Valid DecodedInstruction{
-                    programCounter: programCounter,
-                    nextProgramCounter: programCounter + 4,
-                    instructionType: STORE,
-                    rs1: fromMaybe(?, rs1Result),
-                    rs2: fromMaybe(?, rs2Result),
-                    specific: tagged StoreInstruction StoreInstruction{
-                        offset: offset,
-                        operator: storeOperator
-                    }
-                };
-            end
+            return tagged Valid DecodedInstruction{
+                programCounter: programCounter,
+                nextProgramCounter: programCounter + 4,
+                instructionType: STORE,
+                specific: tagged StoreInstruction StoreInstruction{
+                    offset: offset,
+                    operator: storeOperator
+                }
+            };
         end
     endfunction
 
@@ -402,8 +351,6 @@ module mkInstructionDecoder#(
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
                     instructionType: SYSTEM,
-                    rs1: ?,
-                    rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         operator: ECALL
                     }
@@ -414,8 +361,6 @@ module mkInstructionDecoder#(
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
                     instructionType: SYSTEM,
-                    rs1: ?,
-                    rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         operator: EBREAK
                     }
@@ -426,8 +371,6 @@ module mkInstructionDecoder#(
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
                     instructionType: UNSUPPORTED,
-                    rs1: ?,
-                    rs2: ?,
                     specific: tagged UnsupportedInstruction UnsupportedInstruction{}
                 };
             end
@@ -458,8 +401,6 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
                 instructionType: UNSUPPORTED,
-                rs1: ?,
-                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         endcase;

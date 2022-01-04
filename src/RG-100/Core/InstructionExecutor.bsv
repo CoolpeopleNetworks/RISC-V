@@ -1,6 +1,6 @@
 import ALU::*;
 import FIFOF::*;
-import RVRegisterBypass::*;
+import RVOperandForward::*;
 import RVTypes::*;
 import Instruction::*;
 
@@ -10,7 +10,7 @@ endinterface
 
 module mkInstructionExecutor#(
     FIFOF#(DecodedInstruction) decodedInstructionQueue,
-    Wire#(RVRegisterBypass) registerBypass,
+    Wire#(RVOperandForward) registerBypass,
     FIFOF#(ExecutedInstruction) outputQueue
 )(InstructionExecutor);
     Reg#(Bool) trace <- mkReg(False);

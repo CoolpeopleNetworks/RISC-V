@@ -2,7 +2,7 @@ import FIFOF::*;
 import Instruction::*;
 import MemUtil::*;
 import Port::*;
-import RVRegisterBypass::*;
+import RVOperandForward::*;
 import RVTypes::*;
 
 interface MemoryAccessor;
@@ -11,7 +11,7 @@ endinterface
 module mkMemoryAccessor#(
     FIFOF#(ExecutedInstruction) executedInstructionQueue,
     AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory,
-    Wire#(RVRegisterBypass) registerBypass,
+    Wire#(RVOperandForward) operandForward,
     FIFOF#(ExecutedInstruction) memoryAccessCompleteQueue
 )
 (MemoryAccessor);
@@ -43,7 +43,7 @@ module mkMemoryAccessor#(
                 };
 
                 // Write the received value into the register bypass
-                registerBypass.value <= tagged Valid memoryResponse.data;
+                operandForward.value <= tagged Valid memoryResponse.data;
             end
         end
 

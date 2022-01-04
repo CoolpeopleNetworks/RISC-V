@@ -1,6 +1,6 @@
 set(SOURCES
-    RVRegisterBypass.bsv
     RVCSRFile.bsv
+    RVOperandForward.bsv
     RVRegisterFile.bsv
     RVTypes.bsv
 )

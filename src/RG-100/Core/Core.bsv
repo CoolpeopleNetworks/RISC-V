@@ -1,5 +1,5 @@
 import RVCSRFile::*;
-import RVRegisterBypass::*;
+import RVOperandForward::*;
 import RVRegisterFile::*;
 import RVTypes::*;
 
@@ -52,15 +52,15 @@ module mkCore#(
     // Register File
     //
     RVRegisterFile              registerFile <- mkRVRegisterFile();
-    Wire#(RVRegisterBypass)     executionStageBypass <- mkBypassWire();
-    Wire#(RVRegisterBypass)     memoryAccessStageBypass <- mkBypassWire();
+    Wire#(RVOperandForward)     executionStageForward <- mkBypassWire();
+    Wire#(RVOperandForward)     memoryAccessStageForward <- mkBypassWire();
 
     //
     // Stages
     //
 
     // Stage 1 - Instruction Fetch
-    FIFOF#(Tuple2#(ProgramCounter, Word32)) encodedInstructionQueue <- mkFIFOF();
+    FIFOF#(Tuple2#(ProgramCounter, Word32)) encodedInstructionQueue <- mkSizedFIFOF(1);
     InstructionFetcher instructionFetcher <- mkInstructionFetcher(
         programCounter, 
         instructionFetchPort, 
@@ -68,30 +68,30 @@ module mkCore#(
     );
 
     // Stage 2 - Instruction Decode
-    FIFOF#(DecodedInstruction) decodedInstructionQueue <- mkFIFOF();
+    FIFOF#(DecodedInstruction) decodedInstructionQueue <- mkSizedFIFOF(1);
     InstructionDecoder instructionDecoder <- mkInstructionDecoder(
         encodedInstructionQueue, 
         registerFile, 
-        executionStageBypass, 
-        memoryAccessStageBypass, 
+        executionStageForward, 
+        memoryAccessStageForward, 
         decodedInstructionQueue,
         programCounter  // <- modified for next instruction
     );
 
     // Stage 3 - Instruction Execution
-    FIFOF#(ExecutedInstruction) executedInstructionQueue <- mkFIFOF();
+    FIFOF#(ExecutedInstruction) executedInstructionQueue <- mkSizedFIFOF(1);
     InstructionExecutor instructionExecutor <- mkInstructionExecutor(
         decodedInstructionQueue, 
-        executionStageBypass, 
+        executionStageForward, 
         executedInstructionQueue
     );
 
     // Stage 4 - Memory Access
-    FIFOF#(ExecutedInstruction) memoryAccessCompletedQueue <- mkFIFOF();
+    FIFOF#(ExecutedInstruction) memoryAccessCompletedQueue <- mkSizedFIFOF(1);
     MemoryAccessor memoryAccessor <- mkMemoryAccessor(
         executedInstructionQueue, 
         dataMemory, 
-        memoryAccessStageBypass, 
+        memoryAccessStageForward, 
         memoryAccessCompletedQueue
     );
 
