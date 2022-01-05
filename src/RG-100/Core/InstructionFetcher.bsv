@@ -21,9 +21,10 @@ module mkInstructionFetcher#(
     rule requestMemory (programCounter != lastFetchedProgramCounter);
         // Perform memory request
         instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
+        lastFetchedProgramCounter <= programCounter;
     endrule
 
-    rule enqueueMemory;
+    rule handleMemoryResponse;
         // Get memory response
         let instructionResponse = instructionFetch.response.first();
         instructionFetch.response.deq();
