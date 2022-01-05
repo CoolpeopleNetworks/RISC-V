@@ -201,7 +201,7 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: targetAddress,
                 instructionType: JALR,
-                rs1: ?,
+                rs1: rs1,
                 rs2: ?,
                 specific: tagged JALRInstruction JALRInstruction{
                     rd: iTypeInstruction.rd,
@@ -236,18 +236,27 @@ module mkInstructionDecoder#(
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
-            return tagged Valid DecodedInstruction{
-                programCounter: programCounter,
-                nextProgramCounter: nextProgramCounter,
-                instructionType: LOAD,
-                rs1: ?,
-                rs2: ?,
-                specific: tagged LoadInstruction LoadInstruction{
-                    offset: iTypeInstruction.immediate,
-                    rd: iTypeInstruction.rd,
-                    operator: loadOperator
-                }
-            };
+            // NOTE: This might stall the pipeline if the register
+            //       isn't available. 
+            let registerReadResult = readRegister(iTypeInstruction.rs1);
+            if (isValid(registerReadResult) == False) begin
+                return tagged Invalid;
+            end else begin
+                let rs1 = fromMaybe(?, registerReadResult);
+
+                return tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: nextProgramCounter,
+                    instructionType: LOAD,  
+                    rs1: rs1,
+                    rs2: ?,
+                    specific: tagged LoadInstruction LoadInstruction{
+                        offset: iTypeInstruction.immediate,
+                        rd: iTypeInstruction.rd,
+                        operator: loadOperator
+                    }
+                };
+            end
         end
     endfunction
 
@@ -284,18 +293,27 @@ module mkInstructionDecoder#(
             3'b111: AND;
         endcase;
 
-        return tagged Valid DecodedInstruction{
-            programCounter: programCounter,
-            nextProgramCounter: programCounter + 4,
-            instructionType: OP,
-            rs1: ?,
-            rs2: ?,
-            specific: tagged ALUInstruction ALUInstruction{
-                rd: rTypeInstruction.rd,
-                operator: aluOperator,
-                immediate: ?
-            }
-        };
+        // NOTE: This might stall the pipeline if the register
+        //       isn't available. 
+        let rs1Result = readRegister(rTypeInstruction.rs1);
+        let rs2Result = readRegister(rTypeInstruction.rs2);
+
+        if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
+            return tagged Invalid;
+        end else begin
+            return tagged Valid DecodedInstruction{
+                programCounter: programCounter,
+                nextProgramCounter: programCounter + 4,
+                instructionType: OP,
+                rs1: fromMaybe(?, rs1Result),
+                rs2: fromMaybe(?, rs2Result),
+                specific: tagged ALUInstruction ALUInstruction{
+                    rd: rTypeInstruction.rd,
+                    operator: aluOperator,
+                    immediate: ?
+                }
+            };
+        end
     endfunction
 
     //
@@ -318,18 +336,23 @@ module mkInstructionDecoder#(
             immediate[10] = 0;
         end
 
-        return tagged Valid DecodedInstruction{
-            programCounter: programCounter,
-            nextProgramCounter: programCounter + 4,
-            instructionType: OPIMM,
-            rs1: ?,
-            rs2: ?,
-            specific: tagged ALUInstruction ALUInstruction{
-                rd: iTypeInstruction.rd,
-                operator: aluOperator,
-                immediate: immediate
-            }
-        };
+        let rs1Result = readRegister(iTypeInstruction.rs1);
+        if (isValid(rs1Result) == False) begin
+            return tagged Invalid;
+        end else begin
+            return tagged Valid DecodedInstruction{
+                programCounter: programCounter,
+                nextProgramCounter: programCounter + 4,
+                instructionType: OPIMM,
+                rs1: fromMaybe(?, rs1Result),
+                rs2: ?,
+                specific: tagged ALUInstruction ALUInstruction{
+                    rd: iTypeInstruction.rd,
+                    operator: aluOperator,
+                    immediate: immediate
+                }
+            };
+        end
     endfunction
 
     //
@@ -353,21 +376,30 @@ module mkInstructionDecoder#(
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
-            Bit#(12) offset;
-            offset[11:5] = sTypeInstruction.immediate11_5;
-            offset[4:0] = sTypeInstruction.immediate4_0;
+            // NOTE: This might stall the pipeline if the register
+            //       isn't available. 
+            let rs1Result = readRegister(sTypeInstruction.rs1);
+            let rs2Result = readRegister(sTypeInstruction.rs2);
 
-            return tagged Valid DecodedInstruction{
-                programCounter: programCounter,
-                nextProgramCounter: programCounter + 4,
-                instructionType: STORE,
-                rs1: ?,
-                rs2: ?,
-                specific: tagged StoreInstruction StoreInstruction{
-                    offset: offset,
-                    operator: storeOperator
-                }
-            };
+            if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
+                return tagged Invalid;
+            end else begin
+                Bit#(12) offset;
+                offset[11:5] = sTypeInstruction.immediate11_5;
+                offset[4:0] = sTypeInstruction.immediate4_0;
+
+                return tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: programCounter + 4,
+                    instructionType: STORE,
+                    rs1: fromMaybe(?, rs1Result),
+                    rs2: fromMaybe(?, rs2Result),
+                    specific: tagged StoreInstruction StoreInstruction{
+                        offset: offset,
+                        operator: storeOperator
+                    }
+                };
+            end
         end
     endfunction
 
