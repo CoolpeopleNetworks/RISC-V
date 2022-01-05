@@ -13,5 +13,5 @@ module mkCoreTest(Empty);
     AtomicBRAM#(32, TLog#(TDiv#(32,8)), 1024) dataMemory <- mkAtomicBRAM();
 
     // Core
-    RG100Core core <- mkCore(instructionMemory, dataMemory.portA);
+    RG100Core core <- mkCore(0, instructionMemory, dataMemory.portA);
 endmodule

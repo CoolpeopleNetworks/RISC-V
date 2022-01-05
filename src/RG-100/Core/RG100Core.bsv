@@ -39,13 +39,14 @@ endinterface
 //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
 //
 module mkCore#(
+        ProgramCounter initialProgramCounter,
         ReadOnlyMemServerPort#(32, 2) instructionFetchPort,
-        AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory
+        AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemoryPort
 )(RG100Core);
     //
     // Program counter
     //
-    Reg#(ProgramCounter) programCounter <- mkReg(0);
+    Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
 
     //
     // Register file
@@ -93,7 +94,7 @@ module mkCore#(
     FIFOF#(ExecutedInstruction) memoryAccessCompletedQueue <- mkSizedFIFOF(1);
     MemoryAccessor memoryAccessor <- mkMemoryAccessor(
         executedInstructionQueue, 
-        dataMemory, 
+        dataMemoryPort, 
         memoryAccessStageForward,
         memoryAccessCompletedQueue
     );
