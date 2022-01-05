@@ -5,18 +5,22 @@ import Port::*;
 import RVOperandForward::*;
 import RVTypes::*;
 
+// ================================================================
+// Exports
+export MemoryAccessor (..), mkMemoryAccessor;
+
 interface MemoryAccessor;
 endinterface
 
 module mkMemoryAccessor#(
     FIFOF#(ExecutedInstruction) executedInstructionQueue,
     AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory,
-    Wire#(RVOperandForward) operandForward,
+    RWire#(RVOperandForward) operandForward,
     FIFOF#(ExecutedInstruction) memoryAccessCompleteQueue
 )
 (MemoryAccessor);
 
-    rule accessMemory;
+    rule execute;
         let executedInstruction = executedInstructionQueue.first();
         executedInstructionQueue.deq();
 
@@ -43,7 +47,10 @@ module mkMemoryAccessor#(
                 };
 
                 // Write the received value into the register bypass
-                operandForward.value <= tagged Valid memoryResponse.data;
+                operandForward.wset(RVOperandForward{
+                    rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
+                    value: tagged Valid memoryResponse.data
+                });
             end
         end
 

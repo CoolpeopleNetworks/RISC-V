@@ -4,13 +4,17 @@ import RVOperandForward::*;
 import RVTypes::*;
 import Instruction::*;
 
+// ================================================================
+// Exports
+export InstructionExecutor (..), mkInstructionExecutor;
+
 interface InstructionExecutor;
     method Action enableTracing();
 endinterface
 
 module mkInstructionExecutor#(
     FIFOF#(DecodedInstruction) decodedInstructionQueue,
-    Wire#(RVOperandForward) registerBypass,
+    RWire#(RVOperandForward) operandForward1,
     FIFOF#(ExecutedInstruction) outputQueue
 )(InstructionExecutor);
     Reg#(Bool) trace <- mkReg(False);
@@ -217,8 +221,10 @@ module mkInstructionExecutor#(
         // If writeback data exists, that needs to be written into the previous pipeline 
         // stages using the register bypass.
         if (executedInstruction.writeBack matches tagged Valid .wb) begin
-            registerBypass.rd <= wb.rd;
-            registerBypass.value <= tagged Valid wb.value;
+            operandForward1.wset(RVOperandForward{ 
+                rd: wb.rd,
+                value: tagged Valid wb.value
+            });
         end
 
         outputQueue.enq(executedInstruction);

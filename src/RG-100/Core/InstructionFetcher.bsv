@@ -6,15 +6,9 @@ import RVTypes::*;
 
 // ================================================================
 // Exports
-export InstructionFetcher (..), mkInstructionFetcher, InstructionFetcherOutput;
-
-typedef struct {
-    FIFOF#(Word32) encodedInstructionQueue;
-} InstructionFetcherOutput deriving(Bits);
+export InstructionFetcher (..), mkInstructionFetcher;
 
 interface InstructionFetcher;
-    (* always_ready *)
-    method InstructionFetcherOutput out;
 endinterface
 
 module mkInstructionFetcher#(
@@ -22,20 +16,18 @@ module mkInstructionFetcher#(
     ReadOnlyMemServerPort#(32, 2) instructionFetch,
     FIFOF#(Tuple2#(ProgramCounter, Word32)) outputQueue
 )(InstructionFetcher);
-    Reg#(Word) lastFetchedProgramCounter <- mkReg(0);
+    Reg#(Word) lastFetchedProgramCounter <- mkReg('hFFFF);
 
-    rule fetch (programCounter != lastFetchedProgramCounter);
+    rule requestMemory (programCounter != lastFetchedProgramCounter);
+        // Perform memory request
         instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
+    endrule
+
+    rule enqueueMemory;
+        // Get memory response
         let instructionResponse = instructionFetch.response.first();
         instructionFetch.response.deq();
 
         outputQueue.enq(tuple2(programCounter, instructionResponse.data));
     endrule
-
-    method InstructionFetcherOutput out;
-        InstructionFetcherOutput _output = ?;
-
-        return _output;
-    endmethod
-
 endmodule

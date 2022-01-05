@@ -5,6 +5,10 @@ import RVRegisterFile::*;
 import RVTypes::*;
 import Instruction::*;
 
+// ================================================================
+// Exports
+export InstructionDecoder (..), mkInstructionDecoder;
+
 /*  RV32IM:
         R-type:
             0110011 - ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
@@ -31,8 +35,8 @@ endinterface
 module mkInstructionDecoder#(
     FIFOF#(Tuple2#(ProgramCounter, Word32)) instructionQueue,
     RVRegisterFile registerFile,
-    Wire#(RVOperandForward) operandForward1,
-    Wire#(RVOperandForward) operandForward2,
+    RWire#(RVOperandForward) operandForward1,
+    RWire#(RVOperandForward) operandForward2,
     FIFOF#(DecodedInstruction) outputQueue,
     Reg#(ProgramCounter) nextProgramCounter     // <- Modified for next instruction.
 )(InstructionDecoder);
@@ -47,20 +51,24 @@ module mkInstructionDecoder#(
 
         // If necessary, check forwarded operands from later stages
         if (rx != 0) begin
-            if (operandForward1.rd == rx) begin
-                if (isValid(operandForward1.value)) begin
-                    valueResult = operandForward1.value;
-                end else begin
-                    valueResult = tagged Invalid;
+            if (operandForward1.wget() matches tagged Valid .of) begin
+                if (of.rd == rx) begin
+                    if (isValid(of.value)) begin
+                        valueResult = of.value;
+                    end else begin
+                        valueResult = tagged Invalid;
+                    end
                 end
             end
 
             // Check bypassB
-            if (operandForward2.rd == rx) begin
-                if (isValid(operandForward2.value)) begin
-                    valueResult = operandForward2.value;
-                end else begin
-                    valueResult = tagged Invalid;
+            if (operandForward2.wget() matches tagged Valid .of) begin
+                if (of.rd == rx) begin
+                    if (isValid(of.value)) begin
+                        valueResult = of.value;
+                    end else begin
+                        valueResult = tagged Invalid;
+                    end
                 end
             end
         end
@@ -123,6 +131,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: nextProgramCounter,
                 instructionType: UNSUPPORTED,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
@@ -138,6 +148,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: nextProgramCounter,
                 instructionType: BRANCH,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged BranchInstruction BranchInstruction{
                     offset: offset,
                     operator: branchOperator
@@ -161,6 +173,8 @@ module mkInstructionDecoder#(
             programCounter: programCounter,
             nextProgramCounter: programCounter + signExtend(offset * 2),
             instructionType: JAL,
+            rs1: ?,
+            rs2: ?,
             specific: tagged JALInstruction JALInstruction{
                 rd: jTypeInstruction.returnSave,
                 offset: offset
@@ -187,6 +201,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: targetAddress,
                 instructionType: JALR,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged JALRInstruction JALRInstruction{
                     rd: iTypeInstruction.rd,
                     offset: iTypeInstruction.immediate
@@ -215,6 +231,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: nextProgramCounter,
                 instructionType: UNSUPPORTED,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
@@ -222,6 +240,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: nextProgramCounter,
                 instructionType: LOAD,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged LoadInstruction LoadInstruction{
                     offset: iTypeInstruction.immediate,
                     rd: iTypeInstruction.rd,
@@ -239,6 +259,8 @@ module mkInstructionDecoder#(
             programCounter: programCounter,
             nextProgramCounter: programCounter + 4,
             instructionType: LUI,
+            rs1: ?,
+            rs2: ?,
             specific: tagged LUIInstruction LUIInstruction{
                 rd: uTypeInstruction.rd,
                 immediate: uTypeInstruction.immediate31_12
@@ -266,6 +288,8 @@ module mkInstructionDecoder#(
             programCounter: programCounter,
             nextProgramCounter: programCounter + 4,
             instructionType: OP,
+            rs1: ?,
+            rs2: ?,
             specific: tagged ALUInstruction ALUInstruction{
                 rd: rTypeInstruction.rd,
                 operator: aluOperator,
@@ -298,6 +322,8 @@ module mkInstructionDecoder#(
             programCounter: programCounter,
             nextProgramCounter: programCounter + 4,
             instructionType: OPIMM,
+            rs1: ?,
+            rs2: ?,
             specific: tagged ALUInstruction ALUInstruction{
                 rd: iTypeInstruction.rd,
                 operator: aluOperator,
@@ -322,6 +348,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
                 instructionType: UNSUPPORTED,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         end else begin
@@ -333,6 +361,8 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
                 instructionType: STORE,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged StoreInstruction StoreInstruction{
                     offset: offset,
                     operator: storeOperator
@@ -351,6 +381,8 @@ module mkInstructionDecoder#(
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
                     instructionType: SYSTEM,
+                    rs1: ?,
+                    rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         operator: ECALL
                     }
@@ -361,6 +393,8 @@ module mkInstructionDecoder#(
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
                     instructionType: SYSTEM,
+                    rs1: ?,
+                    rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         operator: EBREAK
                     }
@@ -371,6 +405,8 @@ module mkInstructionDecoder#(
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
                     instructionType: UNSUPPORTED,
+                    rs1: ?,
+                    rs2: ?,
                     specific: tagged UnsupportedInstruction UnsupportedInstruction{}
                 };
             end
@@ -401,12 +437,14 @@ module mkInstructionDecoder#(
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
                 instructionType: UNSUPPORTED,
+                rs1: ?,
+                rs2: ?,
                 specific: tagged UnsupportedInstruction UnsupportedInstruction{}
             };
         endcase;
     endfunction
 
-    rule decode;
+    rule execute;
         // Extract the program co0unter and encoded instruction from the queue.
         let queueItem = instructionQueue.first();
 

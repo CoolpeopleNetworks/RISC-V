@@ -1,0 +1,14 @@
+/* 
+ADDI x2, x0, 10
+ADDI x1, x0, 1
+
+loop:
+   SUB x2, x2, x1
+   BLT x0, x2, loop
+
+https://www.kvakil.me/venus/
+*/
+00a00113
+00100093
+40110133
+fe204ee3

@@ -1,6 +1,6 @@
 set(SOURCE_FILES 
     ALU.bsv
-    Core.bsv
+    RG100Core.bsv
     Instruction.bsv
     InstructionDecoder.bsv
     InstructionExecutor.bsv
@@ -9,10 +9,10 @@ set(SOURCE_FILES
     RegisterWriteback.bsv
 )
 
-add_library(Core STATIC ${SOURCE_FILES})
-add_library(Core::Core ALIAS Core)
+add_library(RG100Core STATIC ${SOURCE_FILES})
+add_library(RG100Core::RG100Core ALIAS RG100Core)
 
-target_include_directories(Core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}Core${CMAKE_STATIC_LIBRARY_SUFFIX}")
-target_link_libraries(Core RVLib::RVLib RecycleBSVLib::RecycleBSVLib)
+target_include_directories(RG100Core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}RG100Core${CMAKE_STATIC_LIBRARY_SUFFIX}")
+target_link_libraries(RG100Core RVLib::RVLib RecycleBSVLib::RecycleBSVLib)
 
 add_subdirectory(tests)

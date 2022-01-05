@@ -22,7 +22,7 @@ import Port::*;
 typedef MemoryRequest#(32, 32) MemoryRequest32;
 typedef MemoryResponse#(32) MemoryResponse32;
 
-interface Core;
+interface RG100Core;
     method Action enableTracing();
 endinterface
 
@@ -42,7 +42,7 @@ endinterface
 module mkCore#(
         ReadOnlyMemServerPort#(32, 2) instructionFetchPort,
         AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory
-)(Core);
+)(RG100Core);
     //
     // Program Counter
     //
@@ -52,8 +52,8 @@ module mkCore#(
     // Register File
     //
     RVRegisterFile              registerFile <- mkRVRegisterFile();
-    Wire#(RVOperandForward)     executionStageForward <- mkBypassWire();
-    Wire#(RVOperandForward)     memoryAccessStageForward <- mkBypassWire();
+    RWire#(RVOperandForward)     executionStageForward <- mkRWire();
+    RWire#(RVOperandForward)     memoryAccessStageForward <- mkRWire();
 
     //
     // Stages
@@ -72,17 +72,17 @@ module mkCore#(
     InstructionDecoder instructionDecoder <- mkInstructionDecoder(
         encodedInstructionQueue, 
         registerFile, 
-        executionStageForward, 
-        memoryAccessStageForward, 
+        executionStageForward,          // Read
+        memoryAccessStageForward,       // Read
         decodedInstructionQueue,
-        programCounter  // <- modified for next instruction
+        programCounter                  // <- modified for next instruction
     );
 
     // Stage 3 - Instruction Execution
     FIFOF#(ExecutedInstruction) executedInstructionQueue <- mkSizedFIFOF(1);
     InstructionExecutor instructionExecutor <- mkInstructionExecutor(
         decodedInstructionQueue, 
-        executionStageForward, 
+        executionStageForward,          // Write
         executedInstructionQueue
     );
 
@@ -91,7 +91,7 @@ module mkCore#(
     MemoryAccessor memoryAccessor <- mkMemoryAccessor(
         executedInstructionQueue, 
         dataMemory, 
-        memoryAccessStageForward, 
+        memoryAccessStageForward,       // Write
         memoryAccessCompletedQueue
     );
 
