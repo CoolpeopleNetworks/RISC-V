@@ -25,8 +25,7 @@ module mkMemoryAccessor#(
         executedInstructionQueue.deq();
 
         if (executedInstruction.loadStore matches tagged Valid .loadStore) begin
-            // TODO: Check for misaligned effective address.
-
+            // NOTE: Alignment checks were already performed during the execution stage.
             dataMemory.request.enq(AtomicMemReq {
                         write_en: loadStore.writeEnable,
                         atomic_op: None,

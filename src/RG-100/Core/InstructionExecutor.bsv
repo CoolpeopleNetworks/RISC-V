@@ -34,7 +34,8 @@ module mkInstructionExecutor#(
                 rd: decodedInstruction.specific.AUIPCInstruction.rd,
                 value: decodedInstruction.programCounter + decodedInstruction.specific.AUIPCInstruction.offset
             },
-            loadStore: tagged Invalid 
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -42,10 +43,12 @@ module mkInstructionExecutor#(
     // BRANCH
     //
     function ExecutedInstruction executeBRANCHInstruction(DecodedInstruction decodedInstruction);
+        //!todo - instruction-address-misaligned exception if branch taken is *not* 32 bit aligned.
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             writeBack: tagged Invalid,
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid            
         };
     endfunction
 
@@ -59,7 +62,8 @@ module mkInstructionExecutor#(
                 rd: decodedInstruction.specific.JALInstruction.rd,
                 value: decodedInstruction.programCounter + 4
             },
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -77,7 +81,8 @@ module mkInstructionExecutor#(
                 rd: decodedInstruction.specific.JALRInstruction.rd,
                 value: decodedInstruction.programCounter + 4
             },
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -95,7 +100,8 @@ module mkInstructionExecutor#(
                 writeEnable: 0,
                 effectiveAddress: effectiveAddress,
                 storeValue: ?   // Not used for LOAD
-            }
+            },
+            exception: tagged Invalid
         };
     endfunction
 
@@ -118,7 +124,8 @@ module mkInstructionExecutor#(
                 writeEnable: 0,     // TODO: Fix!
                 effectiveAddress: effectiveAddress,
                 storeValue: decodedInstruction.rs2
-            }
+            },
+            exception: tagged Invalid
         };
     endfunction
 
@@ -134,7 +141,8 @@ module mkInstructionExecutor#(
                 rd: decodedInstruction.specific.LUIInstruction.rd,
                 value: data
             },
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -152,7 +160,8 @@ module mkInstructionExecutor#(
                     decodedInstruction.specific.ALUInstruction.operator
                 )
             },
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -170,7 +179,8 @@ module mkInstructionExecutor#(
                     decodedInstruction.specific.ALUInstruction.operator
                 )
             },
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -181,7 +191,8 @@ module mkInstructionExecutor#(
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             writeBack: tagged Invalid,
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -192,7 +203,8 @@ module mkInstructionExecutor#(
         return ExecutedInstruction {
             decodedInstruction: decodedInstruction,
             writeBack: tagged Invalid,
-            loadStore: tagged Invalid
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
         };
     endfunction
 
@@ -216,7 +228,24 @@ module mkInstructionExecutor#(
         let decodedInstruction = decodedInstructionQueue.first();
         decodedInstructionQueue.deq();
 
+        // Special case handling for specific SYSTEM instructions
+        if (decodedInstruction.instructionType == SYSTEM) begin
+            case(decodedInstruction.specific.SystemInstruction.operator)
+                ECALL: begin
+                    $display("[execute] ECALL instruction encountered at PC: %x - HALTED", decodedInstruction.programCounter);
+                    $finish();
+                end
+                EBREAK: begin
+                    $display("[execute] EBREAK instruction encountered at PC: %x - HALTED", decodedInstruction.programCounter);
+                    $finish();
+                end
+            endcase
+        end
+
         let executedInstruction = executeDecodedInstruction(decodedInstruction);
+
+        // Handle exceptions
+        // !todo
 
         // If writeback data exists, that needs to be written into the previous pipeline 
         // stages using the register bypass.

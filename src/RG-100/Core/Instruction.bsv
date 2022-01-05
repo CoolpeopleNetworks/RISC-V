@@ -225,6 +225,15 @@ typedef struct {
     Word storeValue;
 } LoadStore deriving(Bits, Eq);
 
+typedef enum {
+    MISALIGNED_INSTRUCTION
+} ExceptionType deriving(Bits, Eq);
+
+typedef struct {
+    ExceptionType exceptionType;
+    Word targetAddress;
+} Exception deriving(Bits, Eq);
+
 //
 // Executed Instruction
 //
@@ -232,4 +241,5 @@ typedef struct {
     DecodedInstruction decodedInstruction;
     Maybe#(Writeback) writeBack;
     Maybe#(LoadStore) loadStore;
+    Maybe#(Exception) exception;
 } ExecutedInstruction deriving(Bits, Eq);
