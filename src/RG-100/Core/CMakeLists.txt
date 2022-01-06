@@ -4,7 +4,6 @@ set(SOURCE_FILES
     Instruction.bsv
     InstructionDecoder.bsv
     InstructionExecutor.bsv
-    InstructionFetcher.bsv
     MemoryAccessor.bsv
     RegisterWriteback.bsv
 )

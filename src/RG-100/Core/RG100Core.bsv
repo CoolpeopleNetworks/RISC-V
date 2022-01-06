@@ -6,16 +6,13 @@ import RVTypes::*;
 import Instruction::*;
 
 // Core stages
-import InstructionFetcher::*;
 import InstructionDecoder::*;
 import InstructionExecutor::*;
 import MemoryAccessor::*;
 import RegisterWriteback::*;
 
-import GetPut::*;
-import ClientServer::*;
+import FIFO::*;
 import Memory::*;
-import FIFOF::*;
 import MemUtil::*;
 import Port::*;
 
@@ -44,9 +41,9 @@ module mkCore#(
         AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemoryPort
 )(RG100Core);
     //
-    // Program counter
+    // Cycle counter
     //
-    Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
+    Reg#(Word) cycleCounter <- mkReg(0);
 
     //
     // Register file
@@ -63,36 +60,31 @@ module mkCore#(
     // Stages
     //
 
-    // Stage 1 - Instruction fetch
-    FIFOF#(Tuple2#(ProgramCounter, Word32)) encodedInstructionQueue <- mkSizedFIFOF(1);
-    InstructionFetcher instructionFetcher <- mkInstructionFetcher(
-        programCounter, 
-        instructionFetchPort, 
-        encodedInstructionQueue
-    );
-
-    // Stage 2 - Instruction decode
-    FIFOF#(DecodedInstruction) decodedInstructionQueue <- mkSizedFIFOF(1);
+    // Stage 1 and 2 - Instruction fetch and decode
+    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkFIFO1();
     InstructionDecoder instructionDecoder <- mkInstructionDecoder(
-        encodedInstructionQueue, 
+        cycleCounter,
+        initialProgramCounter,
+        instructionFetchPort,
         registerFile, 
         executionStageForward,
         memoryAccessStageForward,
-        decodedInstructionQueue,
-        programCounter                  // <- modified for next instruction
+        decodedInstructionQueue
     );
 
     // Stage 3 - Instruction execution
-    FIFOF#(ExecutedInstruction) executedInstructionQueue <- mkSizedFIFOF(1);
+    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkFIFO1();
     InstructionExecutor instructionExecutor <- mkInstructionExecutor(
+        cycleCounter,
         decodedInstructionQueue, 
         executionStageForward,
         executedInstructionQueue
     );
 
     // Stage 4 - Memory access
-    FIFOF#(ExecutedInstruction) memoryAccessCompletedQueue <- mkSizedFIFOF(1);
+    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkFIFO1();
     MemoryAccessor memoryAccessor <- mkMemoryAccessor(
+        cycleCounter,
         executedInstructionQueue, 
         dataMemoryPort, 
         memoryAccessStageForward,
@@ -101,8 +93,16 @@ module mkCore#(
 
     // Stage 5 - Register writeback
     RegisterWriteback registerWriteback <- mkRegisterWriteback(
+        cycleCounter,
         memoryAccessCompletedQueue, 
         registerFile
     );
+
+    rule incrementCycleCounter;
+        cycleCounter <= cycleCounter + 1;
+        if (cycleCounter > 250) begin
+            $finish();
+        end
+    endrule
 
 endmodule

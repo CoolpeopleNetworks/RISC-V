@@ -6,7 +6,7 @@ import RG100Core::*;
 (* synthesize *)
 module mkCoreTest(Empty);
     // Instruction Memory
-    RegFile#(Word, Word) instructionRegisterFile <- mkRegFileFullLoad("CoreTests.txt");
+    RegFile#(Word, Word) instructionRegisterFile <- mkRegFileFullLoad("./src/RG-100/Core/tests/CoreTest.txt");
     ReadOnlyMemServerPort#(32, 2) instructionMemory <- mkMemServerPortFromRegFile(instructionRegisterFile);
 
     // Data Memory

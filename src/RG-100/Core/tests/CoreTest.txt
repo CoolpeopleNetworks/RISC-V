@@ -5,6 +5,7 @@ ADDI x1, x0, 1
 loop:
    SUB x2, x2, x1
    BLT x0, x2, loop
+ECALL
 
 https://www.kvakil.me/venus/
 */
@@ -12,3 +13,4 @@ https://www.kvakil.me/venus/
 00100093
 40110133
 fe204ee3
+00000073

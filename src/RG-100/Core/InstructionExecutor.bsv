@@ -1,5 +1,5 @@
 import ALU::*;
-import FIFOF::*;
+import FIFO::*;
 import RVOperandForward::*;
 import RVTypes::*;
 import Instruction::*;
@@ -9,15 +9,14 @@ import Instruction::*;
 export InstructionExecutor (..), mkInstructionExecutor;
 
 interface InstructionExecutor;
-    method Action enableTracing();
 endinterface
 
 module mkInstructionExecutor#(
-    FIFOF#(DecodedInstruction) decodedInstructionQueue,
+    Reg#(Word) cycleCounter,
+    FIFO#(DecodedInstruction) inputQueue,
     RWire#(RVOperandForward) operandForward1,
-    FIFOF#(ExecutedInstruction) outputQueue
+    FIFO#(ExecutedInstruction) outputQueue
 )(InstructionExecutor);
-    Reg#(Bool) trace <- mkReg(False);
 
     //
     // ALU
@@ -225,24 +224,32 @@ module mkInstructionExecutor#(
     endfunction
 
     rule execute;
-        let decodedInstruction = decodedInstructionQueue.first();
-        decodedInstructionQueue.deq();
+        let decodedInstruction = inputQueue.first();
+        inputQueue.deq();
+
+        $display("%d [execute] executing instruction at $%08x", cycleCounter, decodedInstruction.programCounter);
 
         // Special case handling for specific SYSTEM instructions
         if (decodedInstruction.instructionType == SYSTEM) begin
             case(decodedInstruction.specific.SystemInstruction.operator)
                 ECALL: begin
-                    $display("[execute] ECALL instruction encountered at PC: %x - HALTED", decodedInstruction.programCounter);
+                    $display("%d [execute] ECALL instruction encountered at PC: %x - HALTED", cycleCounter, decodedInstruction.programCounter);
                     $finish();
                 end
                 EBREAK: begin
-                    $display("[execute] EBREAK instruction encountered at PC: %x - HALTED", decodedInstruction.programCounter);
+                    $display("%d [execute] EBREAK instruction encountered at PC: %x - HALTED", cycleCounter, decodedInstruction.programCounter);
                     $finish();
                 end
             endcase
         end
 
-        let executedInstruction = executeDecodedInstruction(decodedInstruction);
+        // let executedInstruction = executeDecodedInstruction(decodedInstruction);
+        let executedInstruction =  ExecutedInstruction {
+            decodedInstruction: decodedInstruction,
+            writeBack: tagged Invalid,
+            loadStore: tagged Invalid,
+            exception: tagged Invalid
+        };
 
         // Handle exceptions
         // !todo
@@ -259,7 +266,4 @@ module mkInstructionExecutor#(
         outputQueue.enq(executedInstruction);
     endrule
 
-    method Action enableTracing;
-        trace <= True;
-    endmethod
 endmodule

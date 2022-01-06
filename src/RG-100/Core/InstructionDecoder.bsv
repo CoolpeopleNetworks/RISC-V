@@ -1,9 +1,13 @@
 import ALU::*;
-import FIFOF::*;
+import FIFO::*;
 import RVOperandForward::*;
 import RVRegisterFile::*;
 import RVTypes::*;
 import Instruction::*;
+
+import Memory::*;
+import MemUtil::*;
+import Port::*;
 
 // ================================================================
 // Exports
@@ -33,21 +37,22 @@ interface InstructionDecoder;
 endinterface
 
 module mkInstructionDecoder#(
-    FIFOF#(Tuple2#(ProgramCounter, Word32)) instructionQueue,
+    Reg#(Word) cycleCounter,
+    ProgramCounter initialProgramCounter,
+    ReadOnlyMemServerPort#(32, 2) instructionFetch,
     RVRegisterFile registerFile,
     RWire#(RVOperandForward) operandForward1,
     RWire#(RVOperandForward) operandForward2,
-    FIFOF#(DecodedInstruction) outputQueue,
-    Reg#(ProgramCounter) nextProgramCounter     // <- Modified for next instruction.
+    FIFO#(DecodedInstruction) outputQueue
 )(InstructionDecoder);
 
+    Reg#(ProgramCounter) lastFetchedProgramCounter <- mkReg('hFFFF);
+    Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
     // 
     // readRegister() - also check any operand forwarding.
     //
-    function Maybe#(Word) readRegister(RegisterIndex rx);
-        // First, read the register.
-        let value = registerFile.read1(rx);
-        let valueResult = tagged Valid value;
+    function Maybe#(Word) readOperandForwards(Word registerValue, RegisterIndex rx);
+        let valueResult = tagged Valid registerValue;
 
         // If necessary, check forwarded operands from later stages
         if (rx != 0) begin
@@ -72,24 +77,32 @@ module mkInstructionDecoder#(
                 end
             end
         end
-        
+
         return valueResult;
+    endfunction
+
+    function Maybe#(Word) readRegister1(RegisterIndex rx);
+        return readOperandForwards(registerFile.read1(rx), rx);
+    endfunction
+
+    function Maybe#(Word) readRegister2(RegisterIndex rx);
+        return readOperandForwards(registerFile.read2(rx), rx);
     endfunction
 
     //
     // predict_branch
     //
-    function Bool predict_branch(Word programCounter, Word targetAddress);
+    function Bool predict_branch(Word currentProgramCounter, Word targetAddress);
         // Simple static branch predictor
         // Predicted taken if target address is smaller than the program counter
         // (backward branch), otherwise (forward branch) predicted not taken.
-        return (targetAddress < programCounter ? True : False);
+        return (targetAddress < currentProgramCounter ? True : False);
     endfunction
 
     //
     // decode_auipc
     //
-    function Maybe#(DecodedInstruction) decode_auipc(ProgramCounter programCounter, UtypeInstruction uTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_auipc(UtypeInstruction uTypeInstruction);
         Word offset = 0;
         offset[31:12] = uTypeInstruction.immediate31_12;
 
@@ -109,7 +122,7 @@ module mkInstructionDecoder#(
     //
     // decode_branch
     //
-    function Maybe#(DecodedInstruction) decode_branch(ProgramCounter programCounter, BtypeInstruction bTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_branch(BtypeInstruction bTypeInstruction);
         Bit#(13) offset = 0;
         offset[12] = bTypeInstruction.immediate12;
         offset[11] = bTypeInstruction.immediate11;
@@ -129,7 +142,7 @@ module mkInstructionDecoder#(
         if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
             return tagged Valid DecodedInstruction{
                 programCounter: programCounter,
-                nextProgramCounter: nextProgramCounter,
+                nextProgramCounter: programCounter,
                 instructionType: UNSUPPORTED,
                 rs1: ?,
                 rs2: ?,
@@ -140,7 +153,7 @@ module mkInstructionDecoder#(
 
             // Branch prediction (the signed offset is relative to rs1 but since
             // that's not available, we ignore it)
-            let targetAddress = programCounter + signExtend(offset * 2);
+            let targetAddress = programCounter + signExtend(offset << 1);
             let isTaken = predict_branch(programCounter, targetAddress);
             let nextProgramCounter = (isTaken ? targetAddress : programCounter + 4);
 
@@ -161,7 +174,7 @@ module mkInstructionDecoder#(
     //
     // decode_jal
     //
-    function Maybe#(DecodedInstruction) decode_jal(ProgramCounter programCounter, JtypeInstruction jTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_jal(JtypeInstruction jTypeInstruction);
         Bit#(21) offset = 0;
         offset[20] = jTypeInstruction.immediate20;
         offset[19:12] = jTypeInstruction.immediate19_12;
@@ -185,10 +198,10 @@ module mkInstructionDecoder#(
     //
     // decode_jalr
     //
-    function Maybe#(DecodedInstruction) decode_jalr(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_jalr(ItypeInstruction iTypeInstruction);
         // NOTE: This might stall the pipeline if the register
         //       isn't available. 
-        let registerReadResult = readRegister(iTypeInstruction.rs1);
+        let registerReadResult = readRegister1(iTypeInstruction.rs1);
 
         if (isValid(registerReadResult) == False) begin
             return tagged Invalid;
@@ -214,7 +227,7 @@ module mkInstructionDecoder#(
     //
     // decode_load
     //
-    function Maybe#(DecodedInstruction) decode_load(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_load(ItypeInstruction iTypeInstruction);
         let loadOperator = case(iTypeInstruction.func3)
             3'b000: LB;
             3'b001: LH;
@@ -238,7 +251,7 @@ module mkInstructionDecoder#(
         end else begin
             // NOTE: This might stall the pipeline if the register
             //       isn't available. 
-            let registerReadResult = readRegister(iTypeInstruction.rs1);
+            let registerReadResult = readRegister1(iTypeInstruction.rs1);
             if (isValid(registerReadResult) == False) begin
                 return tagged Invalid;
             end else begin
@@ -263,7 +276,7 @@ module mkInstructionDecoder#(
     //
     // decode_lui
     //
-    function Maybe#(DecodedInstruction) decode_lui(ProgramCounter programCounter, UtypeInstruction uTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_lui(UtypeInstruction uTypeInstruction);
         return tagged Valid DecodedInstruction{
             programCounter: programCounter,
             nextProgramCounter: programCounter + 4,
@@ -280,7 +293,7 @@ module mkInstructionDecoder#(
     //
     // decode_op
     //
-    function Maybe#(DecodedInstruction) decode_op(ProgramCounter programCounter, RtypeInstruction rTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_op(RtypeInstruction rTypeInstruction);
         // Assemble the alu operation code from the func3 and func7 fields of the instruction.
         let aluOperator = case(rTypeInstruction.func3)
             3'b000: (rTypeInstruction.func7[6] == 0 ? ADD : SUB);
@@ -295,8 +308,8 @@ module mkInstructionDecoder#(
 
         // NOTE: This might stall the pipeline if the register
         //       isn't available. 
-        let rs1Result = readRegister(rTypeInstruction.rs1);
-        let rs2Result = readRegister(rTypeInstruction.rs2);
+        let rs1Result = readRegister1(rTypeInstruction.rs1);
+        let rs2Result = readRegister2(rTypeInstruction.rs2);
 
         if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
             return tagged Invalid;
@@ -319,7 +332,7 @@ module mkInstructionDecoder#(
     //
     // decode_opimm
     //
-    function Maybe#(DecodedInstruction) decode_opimm(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_opimm(ItypeInstruction iTypeInstruction);
         let aluOperator = case(iTypeInstruction.func3)
             3'b000: ADD;
             3'b001: SLL;
@@ -336,7 +349,7 @@ module mkInstructionDecoder#(
             immediate[10] = 0;
         end
 
-        let rs1Result = readRegister(iTypeInstruction.rs1);
+        let rs1Result = readRegister1(iTypeInstruction.rs1);
         if (isValid(rs1Result) == False) begin
             return tagged Invalid;
         end else begin
@@ -358,7 +371,7 @@ module mkInstructionDecoder#(
     //
     // decode_store
     //
-    function Maybe#(DecodedInstruction) decode_store(ProgramCounter programCounter, StypeInstruction sTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_store(StypeInstruction sTypeInstruction);
         let storeOperator = case(sTypeInstruction.func3)
             3'b000: SB;
             3'b001: SH;
@@ -378,8 +391,8 @@ module mkInstructionDecoder#(
         end else begin
             // NOTE: This might stall the pipeline if the register
             //       isn't available. 
-            let rs1Result = readRegister(sTypeInstruction.rs1);
-            let rs2Result = readRegister(sTypeInstruction.rs2);
+            let rs1Result = readRegister1(sTypeInstruction.rs1);
+            let rs2Result = readRegister2(sTypeInstruction.rs2);
 
             if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
                 return tagged Invalid;
@@ -406,7 +419,7 @@ module mkInstructionDecoder#(
     //
     // decode_system
     //
-    function Maybe#(DecodedInstruction) decode_system(ProgramCounter programCounter, ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_system(ItypeInstruction iTypeInstruction);
         return case({iTypeInstruction.immediate, iTypeInstruction.rs1, iTypeInstruction.func3, iTypeInstruction.rd})
             25'b000000000000_00000_000_00000: begin
                 tagged Valid DecodedInstruction{
@@ -445,7 +458,7 @@ module mkInstructionDecoder#(
         endcase;
     endfunction
 
-    function Maybe#(DecodedInstruction) decodeInstruction(ProgramCounter programCounter, Word rawInstruction);
+    function Maybe#(DecodedInstruction) decodeInstruction(Word rawInstruction);
         BtypeInstruction bTypeInstruction = unpack(rawInstruction);
         ItypeInstruction iTypeInstruction = unpack(rawInstruction);
         JtypeInstruction jTypeInstruction = unpack(rawInstruction);
@@ -455,16 +468,16 @@ module mkInstructionDecoder#(
 
         return case(rawInstruction[6:0])
             // RV32I
-            7'b0000011: decode_load(programCounter, iTypeInstruction);      // LOAD     (I-type)
-            7'b0010011: decode_opimm(programCounter, iTypeInstruction);     // OPIMM    (I-type)
-            7'b0010111: decode_auipc(programCounter, uTypeInstruction);     // AUIPC    (U-type)
-            7'b0100011: decode_store(programCounter, sTypeInstruction);     // STORE    (S-type)
-            7'b0110011: decode_op(programCounter, rTypeInstruction);        // OP       (R-type)
-            7'b0110111: decode_lui(programCounter, uTypeInstruction);       // LUI      (U-type)
-            7'b1100011: decode_branch(programCounter, bTypeInstruction);    // BRANCH   (B-type)
-            7'b1100111: decode_jalr(programCounter, iTypeInstruction);      // JALR     (I-type)
-            7'b1101111: decode_jal(programCounter, jTypeInstruction);       // JAL      (J-type)
-            7'b1110011: decode_system(programCounter, iTypeInstruction);    // SYSTEM   (I-type)
+            7'b0000011: decode_load(iTypeInstruction);      // LOAD     (I-type)
+            7'b0010011: decode_opimm(iTypeInstruction);     // OPIMM    (I-type)
+            7'b0010111: decode_auipc(uTypeInstruction);     // AUIPC    (U-type)
+            7'b0100011: decode_store(sTypeInstruction);     // STORE    (S-type)
+            7'b0110011: decode_op(rTypeInstruction);        // OP       (R-type)
+            7'b0110111: decode_lui(uTypeInstruction);       // LUI      (U-type)
+            7'b1100011: decode_branch(bTypeInstruction);    // BRANCH   (B-type)
+            7'b1100111: decode_jalr(iTypeInstruction);      // JALR     (I-type)
+            7'b1101111: decode_jal(jTypeInstruction);       // JAL      (J-type)
+            7'b1110011: decode_system(iTypeInstruction);    // SYSTEM   (I-type)
             default: tagged Valid DecodedInstruction{
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
@@ -476,21 +489,27 @@ module mkInstructionDecoder#(
         endcase;
     endfunction
 
-    rule execute;
-        // Extract the program co0unter and encoded instruction from the queue.
-        let queueItem = instructionQueue.first();
+    // rule fetch(programCounter != lastFetchedProgramCounter);
+    //     $display("%d [fetch] Fetching instruction from $%08x", cycleCounter, programCounter);
 
-        let programCounter = tpl_1(queueItem);
-        let encodedInstruction = tpl_2(queueItem);
+    //     // Perform memory request
+    //     instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
+    //     lastFetchedProgramCounter <= programCounter;
+    // endrule
+
+    rule decode;
+        let encodedInstruction = instructionFetch.response.first();
+
+        $display("%d [decode] decoding instruction at $%08x", cycleCounter, programCounter);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
         // for data (memory reads), this will return tagged invalid.
-        let decodeResult = decodeInstruction(programCounter, encodedInstruction);
+        let decodeResult = decodeInstruction(encodedInstruction.data());
         if (isValid(decodeResult)) begin
-            instructionQueue.deq();
+            instructionFetch.response.deq();
             
             let decodedInstruction = fromMaybe(?, decodeResult);
-            nextProgramCounter <= decodedInstruction.nextProgramCounter;
+            programCounter <= decodedInstruction.nextProgramCounter;
 
             // Send the decode result to the output queue.
             outputQueue.enq(decodedInstruction);
