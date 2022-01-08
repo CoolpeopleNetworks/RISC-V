@@ -12,6 +12,7 @@ import MemoryAccessor::*;
 import RegisterWriteback::*;
 
 import FIFO::*;
+import SpecialFIFOs::*;
 import Memory::*;
 import MemUtil::*;
 import Port::*;
@@ -61,7 +62,7 @@ module mkCore#(
     //
 
     // Stage 1 and 2 - Instruction fetch and decode
-    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkFIFO1();
+    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkPipelineFIFO();
     InstructionDecoder instructionDecoder <- mkInstructionDecoder(
         cycleCounter,
         initialProgramCounter,
@@ -73,7 +74,7 @@ module mkCore#(
     );
 
     // Stage 3 - Instruction execution
-    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkFIFO1();
+    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkPipelineFIFO();
     InstructionExecutor instructionExecutor <- mkInstructionExecutor(
         cycleCounter,
         decodedInstructionQueue, 
@@ -82,7 +83,7 @@ module mkCore#(
     );
 
     // Stage 4 - Memory access
-    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkFIFO1();
+    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkPipelineFIFO();
     MemoryAccessor memoryAccessor <- mkMemoryAccessor(
         cycleCounter,
         executedInstructionQueue, 

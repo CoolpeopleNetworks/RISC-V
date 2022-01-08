@@ -31,12 +31,12 @@ module mkMemoryAccessor#(
 
         if (executedInstruction.loadStore matches tagged Valid .loadStore) begin
             // NOTE: Alignment checks were already performed during the execution stage.
-            // dataMemory.request.enq(AtomicMemReq {
-            //             write_en: loadStore.writeEnable,
-            //             atomic_op: None,
-            //             addr: loadStore.effectiveAddress,
-            //             data: loadStore.storeValue
-            // });
+            dataMemory.request.enq(AtomicMemReq {
+                        write_en: loadStore.writeEnable,
+                        atomic_op: None,
+                        addr: loadStore.effectiveAddress,
+                        data: loadStore.storeValue
+            });
 
             // If this is a store operation, move to the next stage
             if (loadStore.writeEnable != 0) begin

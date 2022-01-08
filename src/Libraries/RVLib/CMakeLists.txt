@@ -1,12 +1,1 @@
-set(SOURCES
-    RVCSRFile.bsv
-    RVOperandForward.bsv
-    RVRegisterFile.bsv
-    RVTypes.bsv
-)
-
-add_library(RVLib STATIC ${SOURCES})
-add_library(RVLib::RVLib ALIAS RVLib)
-
-target_link_libraries(RVLib PUBLIC RecycleBSVLib::RecycleBSVLib)
-target_include_directories(RVLib PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}RVLib${CMAKE_STATIC_LIBRARY_SUFFIX}")
+add_bsv_module_dir("${CMAKE_CURRENT_SOURCE_DIR}")

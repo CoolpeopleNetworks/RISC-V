@@ -489,15 +489,15 @@ module mkInstructionDecoder#(
         endcase;
     endfunction
 
-    // rule fetch(programCounter != lastFetchedProgramCounter);
-    //     $display("%d [fetch] Fetching instruction from $%08x", cycleCounter, programCounter);
+    rule fetch(programCounter != lastFetchedProgramCounter);
+        $display("%d [fetch] Fetching instruction from $%08x", cycleCounter, programCounter);
 
-    //     // Perform memory request
-    //     instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
-    //     lastFetchedProgramCounter <= programCounter;
-    // endrule
+        // Perform memory request
+        instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
+        lastFetchedProgramCounter <= programCounter;
+    endrule
 
-    rule decode;
+    rule decode(instructionFetch.response.canDeq());
         let encodedInstruction = instructionFetch.response.first();
 
         $display("%d [decode] decoding instruction at $%08x", cycleCounter, programCounter);
