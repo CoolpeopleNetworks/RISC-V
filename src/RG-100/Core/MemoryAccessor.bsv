@@ -1,7 +1,6 @@
 import FIFO::*;
 import Instruction::*;
-import MemUtil::*;
-import Port::*;
+import DataMemory::*;
 import RVOperandForward::*;
 import RVTypes::*;
 
@@ -15,7 +14,7 @@ endinterface
 module mkMemoryAccessor#(
     Reg#(Word) cycleCounter,
     FIFO#(ExecutedInstruction) inputQueue,
-    AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemory,
+    DataMemory dataMemory,
     RWire#(RVOperandForward) operandForward,
     FIFO#(ExecutedInstruction) outputQueue
 )
@@ -31,17 +30,11 @@ module mkMemoryAccessor#(
 
         if (executedInstruction.loadStore matches tagged Valid .loadStore) begin
             // NOTE: Alignment checks were already performed during the execution stage.
-            dataMemory.request.enq(AtomicMemReq {
-                        write_en: loadStore.writeEnable,
-                        atomic_op: None,
-                        addr: loadStore.effectiveAddress,
-                        data: loadStore.storeValue
-            });
+            dataMemory.request(loadStore.effectiveAddress, loadStore.storeValue, loadStore.writeEnable);
 
             // If this is a store operation, move to the next stage
-            if (loadStore.writeEnable != 0) begin
-                outputQueue.enq(executedInstruction);
-            end else begin
+            // (Store operations stop here...there's no writeback possible)
+            if (loadStore.writeEnable == 0) begin
                 waitingForResponse <= executedInstruction;
             end
         end else begin
@@ -53,8 +46,8 @@ module mkMemoryAccessor#(
 
     // This is only used for LOAD oeprations, STORE operations don't receive responses.
     rule receiveResponse;
-        let memoryResponse = dataMemory.response.first();
-        dataMemory.response.deq();
+        let memoryResponse = dataMemory.first();
+        dataMemory.deq();
 
         let executedInstruction = waitingForResponse;
         $display("%d [memory] received LOAD data at $%08x", cycleCounter, executedInstruction.decodedInstruction.programCounter);
@@ -63,13 +56,13 @@ module mkMemoryAccessor#(
         // writeback pipeline stage.
         executedInstruction.writeBack = tagged Valid Writeback {
             rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
-            value: memoryResponse.data
+            value: memoryResponse
         };
 
         // Forward the received data
         operandForward.wset(RVOperandForward{
             rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
-            value: tagged Valid memoryResponse.data
+            value: tagged Valid memoryResponse
         });
 
         outputQueue.enq(executedInstruction);

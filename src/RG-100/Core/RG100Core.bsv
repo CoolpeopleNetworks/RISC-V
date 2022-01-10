@@ -6,19 +6,16 @@ import RVTypes::*;
 import Instruction::*;
 
 // Core stages
-import InstructionDecoder::*;
+import InstructionFetchDecode::*;
 import InstructionExecutor::*;
 import MemoryAccessor::*;
 import RegisterWriteback::*;
 
 import FIFO::*;
 import SpecialFIFOs::*;
-import Memory::*;
-import MemUtil::*;
-import Port::*;
 
-typedef MemoryRequest#(32, 32) MemoryRequest32;
-typedef MemoryResponse#(32) MemoryResponse32;
+import InstructionMemory::*;
+import DataMemory::*;
 
 interface RG100Core;
 endinterface
@@ -38,8 +35,8 @@ endinterface
 //
 module mkCore#(
         ProgramCounter initialProgramCounter,
-        ReadOnlyMemServerPort#(32, 2) instructionFetchPort,
-        AtomicMemServerPort#(32, TLog#(TDiv#(32,8))) dataMemoryPort
+        InstructionMemory instructionMemory,
+        DataMemory dataMemory
 )(RG100Core);
     //
     // Cycle counter
@@ -63,10 +60,10 @@ module mkCore#(
 
     // Stage 1 and 2 - Instruction fetch and decode
     FIFO#(DecodedInstruction) decodedInstructionQueue <- mkPipelineFIFO();
-    InstructionDecoder instructionDecoder <- mkInstructionDecoder(
+    InstructionFetchDecode instructionFetchDecode <- mkInstructionFetchDecode(
         cycleCounter,
         initialProgramCounter,
-        instructionFetchPort,
+        instructionMemory,
         registerFile, 
         executionStageForward,
         memoryAccessStageForward,
@@ -87,7 +84,7 @@ module mkCore#(
     MemoryAccessor memoryAccessor <- mkMemoryAccessor(
         cycleCounter,
         executedInstructionQueue, 
-        dataMemoryPort, 
+        dataMemory, 
         memoryAccessStageForward,
         memoryAccessCompletedQueue
     );

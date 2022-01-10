@@ -12,7 +12,7 @@ module mkRegisterWriteback#(
     RVRegisterFile registerFile
 )(RegisterWriteback);
 
-    rule execute;
+    rule writeBack;
         let memoryAccessCompleteInstruction = inputQueue.first();
         inputQueue.deq();
 

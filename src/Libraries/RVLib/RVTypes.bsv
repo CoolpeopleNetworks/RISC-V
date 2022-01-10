@@ -14,3 +14,5 @@ typedef Bit#(128) Word128;
 
 typedef Word ProgramCounter;
 typedef Bit#(5) RegisterIndex;
+
+typedef TLog#(TDiv#(n,8)) DataSz#(numeric type n);

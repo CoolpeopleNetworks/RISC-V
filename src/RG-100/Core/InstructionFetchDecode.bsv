@@ -5,13 +5,11 @@ import RVRegisterFile::*;
 import RVTypes::*;
 import Instruction::*;
 
-import Memory::*;
-import MemUtil::*;
-import Port::*;
+import InstructionMemory::*;
 
 // ================================================================
 // Exports
-export InstructionDecoder (..), mkInstructionDecoder;
+export InstructionFetchDecode (..), mkInstructionFetchDecode;
 
 /*  RV32IM:
         R-type:
@@ -33,18 +31,18 @@ export InstructionDecoder (..), mkInstructionDecoder;
             1101111 - JAL
 */
 
-interface InstructionDecoder;
+interface InstructionFetchDecode;
 endinterface
 
-module mkInstructionDecoder#(
+module mkInstructionFetchDecode#(
     Reg#(Word) cycleCounter,
     ProgramCounter initialProgramCounter,
-    ReadOnlyMemServerPort#(32, 2) instructionFetch,
+    InstructionMemory instructionMemory,
     RVRegisterFile registerFile,
     RWire#(RVOperandForward) operandForward1,
     RWire#(RVOperandForward) operandForward2,
     FIFO#(DecodedInstruction) outputQueue
-)(InstructionDecoder);
+)(InstructionFetchDecode);
 
     Reg#(ProgramCounter) lastFetchedProgramCounter <- mkReg('hFFFF);
     Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
@@ -493,21 +491,20 @@ module mkInstructionDecoder#(
         $display("%d [fetch] Fetching instruction from $%08x", cycleCounter, programCounter);
 
         // Perform memory request
-        instructionFetch.request.enq(ReadOnlyMemReq{ addr: programCounter });
+        instructionMemory.request(programCounter);
         lastFetchedProgramCounter <= programCounter;
     endrule
 
-    rule decode(instructionFetch.response.canDeq());
-        let encodedInstruction = instructionFetch.response.first();
+    rule decode;
+        let encodedInstruction = instructionMemory.first();
 
         $display("%d [decode] decoding instruction at $%08x", cycleCounter, programCounter);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
         // for data (memory reads), this will return tagged invalid.
-        let decodeResult = decodeInstruction(encodedInstruction.data());
+        let decodeResult = decodeInstruction(encodedInstruction);
         if (isValid(decodeResult)) begin
-            instructionFetch.response.deq();
-            
+            instructionMemory.deq();
             let decodedInstruction = fromMaybe(?, decodeResult);
             programCounter <= decodedInstruction.nextProgramCounter;
 
