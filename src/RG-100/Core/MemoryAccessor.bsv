@@ -17,8 +17,7 @@ module mkMemoryAccessor#(
     DataMemory dataMemory,
     RWire#(RVOperandForward) operandForward,
     FIFO#(ExecutedInstruction) outputQueue
-)
-(MemoryAccessor);
+)(MemoryAccessor);
 
     Reg#(ExecutedInstruction) waitingForResponse <- mkRegU();
 
@@ -45,6 +44,7 @@ module mkMemoryAccessor#(
     endrule
 
     // This is only used for LOAD oeprations, STORE operations don't receive responses.
+    (* descending_urgency = "sendRequest, receiveResponse" *)
     rule receiveResponse;
         let memoryResponse = dataMemory.first();
         dataMemory.deq();
