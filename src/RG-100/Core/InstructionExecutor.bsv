@@ -9,14 +9,11 @@ import Instruction::*;
 export InstructionExecutor (..), mkInstructionExecutor;
 
 interface InstructionExecutor;
+    method ExecutedInstruction execute(DecodedInstruction decodedInstruction);
 endinterface
 
-module mkInstructionExecutor#(
-    Reg#(Word) cycleCounter,
-    FIFO#(DecodedInstruction) inputQueue,
-    RWire#(RVOperandForward) operandForward1,
-    FIFO#(ExecutedInstruction) outputQueue
-)(InstructionExecutor);
+(* synthesize *)
+module mkInstructionExecutor(InstructionExecutor);
 
     //
     // ALU
@@ -207,7 +204,7 @@ module mkInstructionExecutor#(
         };
     endfunction
 
-    function ExecutedInstruction executeDecodedInstruction(DecodedInstruction decodedInstruction);
+    method ExecutedInstruction execute(DecodedInstruction decodedInstruction);
         return case(decodedInstruction.instructionType)
             AUIPC:  return executeAUIPCInstruction(decodedInstruction);
             BRANCH: return executeBRANCHInstruction(decodedInstruction);
@@ -221,49 +218,5 @@ module mkInstructionExecutor#(
             SYSTEM: return executeSYSTEMInstruction(decodedInstruction);
             UNSUPPORTED: return executeUNSUPPORTEDInstruction(decodedInstruction);
         endcase;
-    endfunction
-
-    rule execute;
-        let decodedInstruction = inputQueue.first();
-        inputQueue.deq();
-
-        $display("%d [execute] executing instruction at $%08x", cycleCounter, decodedInstruction.programCounter);
-
-        // Special case handling for specific SYSTEM instructions
-        if (decodedInstruction.instructionType == SYSTEM) begin
-            case(decodedInstruction.specific.SystemInstruction.operator)
-                ECALL: begin
-                    $display("%d [execute] ECALL instruction encountered at PC: %x - HALTED", cycleCounter, decodedInstruction.programCounter);
-                    $finish();
-                end
-                EBREAK: begin
-                    $display("%d [execute] EBREAK instruction encountered at PC: %x - HALTED", cycleCounter, decodedInstruction.programCounter);
-                    $finish();
-                end
-            endcase
-        end
-
-        // let executedInstruction = executeDecodedInstruction(decodedInstruction);
-        let executedInstruction =  ExecutedInstruction {
-            decodedInstruction: decodedInstruction,
-            writeBack: tagged Invalid,
-            loadStore: tagged Invalid,
-            exception: tagged Invalid
-        };
-
-        // Handle exceptions
-        // !todo
-
-        // If writeback data exists, that needs to be written into the previous pipeline 
-        // stages using the register bypass.
-        if (executedInstruction.writeBack matches tagged Valid .wb) begin
-            operandForward1.wset(RVOperandForward{ 
-                rd: wb.rd,
-                value: tagged Valid wb.value
-            });
-        end
-
-        outputQueue.enq(executedInstruction);
-    endrule
-
+    endmethod
 endmodule

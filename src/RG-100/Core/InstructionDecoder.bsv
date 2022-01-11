@@ -1,15 +1,13 @@
-import ALU::*;
-import FIFO::*;
 import RVOperandForward::*;
-import RVRegisterFile::*;
 import RVTypes::*;
-import Instruction::*;
+import RVRegisterFile::*;
 
-import InstructionMemory::*;
+import ALU::*;
+import Instruction::*;
 
 // ================================================================
 // Exports
-export InstructionFetchDecode (..), mkInstructionFetchDecode;
+export InstructionDecoder (..), mkInstructionDecoder;
 
 /*  RV32IM:
         R-type:
@@ -31,21 +29,15 @@ export InstructionFetchDecode (..), mkInstructionFetchDecode;
             1101111 - JAL
 */
 
-interface InstructionFetchDecode;
+interface InstructionDecoder;
+    method Maybe#(DecodedInstruction) decode(Word programCounter, Word encodedInstruction);
 endinterface
 
-module mkInstructionFetchDecode#(
-    Reg#(Word) cycleCounter,
-    ProgramCounter initialProgramCounter,
-    InstructionMemory instructionMemory,
+module mkInstructionDecoder#(
     RVRegisterFile registerFile,
     RWire#(RVOperandForward) operandForward1,
-    RWire#(RVOperandForward) operandForward2,
-    FIFO#(DecodedInstruction) outputQueue
-)(InstructionFetchDecode);
-
-    Reg#(ProgramCounter) lastFetchedProgramCounter <- mkReg('hFFFF);
-    Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
+    RWire#(RVOperandForward) operandForward2
+)(InstructionDecoder);
     // 
     // readRegister() - also check any operand forwarding.
     //
@@ -100,7 +92,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_auipc
     //
-    function Maybe#(DecodedInstruction) decode_auipc(UtypeInstruction uTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_auipc(Word programCounter, UtypeInstruction uTypeInstruction);
         Word offset = 0;
         offset[31:12] = uTypeInstruction.immediate31_12;
 
@@ -120,7 +112,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_branch
     //
-    function Maybe#(DecodedInstruction) decode_branch(BtypeInstruction bTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_branch(Word programCounter, BtypeInstruction bTypeInstruction);
         Bit#(13) offset = 0;
         offset[12] = bTypeInstruction.immediate12;
         offset[11] = bTypeInstruction.immediate11;
@@ -172,7 +164,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_jal
     //
-    function Maybe#(DecodedInstruction) decode_jal(JtypeInstruction jTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_jal(Word programCounter, JtypeInstruction jTypeInstruction);
         Bit#(21) offset = 0;
         offset[20] = jTypeInstruction.immediate20;
         offset[19:12] = jTypeInstruction.immediate19_12;
@@ -196,7 +188,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_jalr
     //
-    function Maybe#(DecodedInstruction) decode_jalr(ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_jalr(Word programCounter, ItypeInstruction iTypeInstruction);
         // NOTE: This might stall the pipeline if the register
         //       isn't available. 
         let registerReadResult = readRegister1(iTypeInstruction.rs1);
@@ -225,7 +217,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_load
     //
-    function Maybe#(DecodedInstruction) decode_load(ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_load(Word programCounter, ItypeInstruction iTypeInstruction);
         let loadOperator = case(iTypeInstruction.func3)
             3'b000: LB;
             3'b001: LH;
@@ -274,7 +266,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_lui
     //
-    function Maybe#(DecodedInstruction) decode_lui(UtypeInstruction uTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_lui(Word programCounter, UtypeInstruction uTypeInstruction);
         return tagged Valid DecodedInstruction{
             programCounter: programCounter,
             nextProgramCounter: programCounter + 4,
@@ -291,7 +283,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_op
     //
-    function Maybe#(DecodedInstruction) decode_op(RtypeInstruction rTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_op(Word programCounter, RtypeInstruction rTypeInstruction);
         // Assemble the alu operation code from the func3 and func7 fields of the instruction.
         let aluOperator = case(rTypeInstruction.func3)
             3'b000: (rTypeInstruction.func7[6] == 0 ? ADD : SUB);
@@ -330,7 +322,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_opimm
     //
-    function Maybe#(DecodedInstruction) decode_opimm(ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_opimm(Word programCounter, ItypeInstruction iTypeInstruction);
         let aluOperator = case(iTypeInstruction.func3)
             3'b000: ADD;
             3'b001: SLL;
@@ -369,7 +361,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_store
     //
-    function Maybe#(DecodedInstruction) decode_store(StypeInstruction sTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_store(Word programCounter, StypeInstruction sTypeInstruction);
         let storeOperator = case(sTypeInstruction.func3)
             3'b000: SB;
             3'b001: SH;
@@ -417,7 +409,7 @@ module mkInstructionFetchDecode#(
     //
     // decode_system
     //
-    function Maybe#(DecodedInstruction) decode_system(ItypeInstruction iTypeInstruction);
+    function Maybe#(DecodedInstruction) decode_system(Word programCounter, ItypeInstruction iTypeInstruction);
         return case({iTypeInstruction.immediate, iTypeInstruction.rs1, iTypeInstruction.func3, iTypeInstruction.rd})
             25'b000000000000_00000_000_00000: begin
                 tagged Valid DecodedInstruction{
@@ -456,26 +448,26 @@ module mkInstructionFetchDecode#(
         endcase;
     endfunction
 
-    function Maybe#(DecodedInstruction) decodeInstruction(Word rawInstruction);
-        BtypeInstruction bTypeInstruction = unpack(rawInstruction);
-        ItypeInstruction iTypeInstruction = unpack(rawInstruction);
-        JtypeInstruction jTypeInstruction = unpack(rawInstruction);
-        RtypeInstruction rTypeInstruction = unpack(rawInstruction);
-        StypeInstruction sTypeInstruction = unpack(rawInstruction);
-        UtypeInstruction uTypeInstruction = unpack(rawInstruction);
+    function Maybe#(DecodedInstruction) decodeInstruction(Word programCounter, Word encodedInstruction);
+        BtypeInstruction bTypeInstruction = unpack(encodedInstruction);
+        ItypeInstruction iTypeInstruction = unpack(encodedInstruction);
+        JtypeInstruction jTypeInstruction = unpack(encodedInstruction);
+        RtypeInstruction rTypeInstruction = unpack(encodedInstruction);
+        StypeInstruction sTypeInstruction = unpack(encodedInstruction);
+        UtypeInstruction uTypeInstruction = unpack(encodedInstruction);
 
-        return case(rawInstruction[6:0])
+        return case(encodedInstruction[6:0])
             // RV32I
-            7'b0000011: decode_load(iTypeInstruction);      // LOAD     (I-type)
-            7'b0010011: decode_opimm(iTypeInstruction);     // OPIMM    (I-type)
-            7'b0010111: decode_auipc(uTypeInstruction);     // AUIPC    (U-type)
-            7'b0100011: decode_store(sTypeInstruction);     // STORE    (S-type)
-            7'b0110011: decode_op(rTypeInstruction);        // OP       (R-type)
-            7'b0110111: decode_lui(uTypeInstruction);       // LUI      (U-type)
-            7'b1100011: decode_branch(bTypeInstruction);    // BRANCH   (B-type)
-            7'b1100111: decode_jalr(iTypeInstruction);      // JALR     (I-type)
-            7'b1101111: decode_jal(jTypeInstruction);       // JAL      (J-type)
-            7'b1110011: decode_system(iTypeInstruction);    // SYSTEM   (I-type)
+            7'b0000011: decode_load(programCounter, iTypeInstruction);      // LOAD     (I-type)
+            7'b0010011: decode_opimm(programCounter, iTypeInstruction);     // OPIMM    (I-type)
+            7'b0010111: decode_auipc(programCounter, uTypeInstruction);     // AUIPC    (U-type)
+            7'b0100011: decode_store(programCounter, sTypeInstruction);     // STORE    (S-type)
+            7'b0110011: decode_op(programCounter, rTypeInstruction);        // OP       (R-type)
+            7'b0110111: decode_lui(programCounter, uTypeInstruction);       // LUI      (U-type)
+            7'b1100011: decode_branch(programCounter, bTypeInstruction);    // BRANCH   (B-type)
+            7'b1100111: decode_jalr(programCounter, iTypeInstruction);      // JALR     (I-type)
+            7'b1101111: decode_jal(programCounter, jTypeInstruction);       // JAL      (J-type)
+            7'b1110011: decode_system(programCounter, iTypeInstruction);    // SYSTEM   (I-type)
             default: tagged Valid DecodedInstruction{
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
@@ -487,29 +479,7 @@ module mkInstructionFetchDecode#(
         endcase;
     endfunction
 
-    rule fetch(programCounter != lastFetchedProgramCounter);
-        $display("%d [fetch] Fetching instruction from $%08x", cycleCounter, programCounter);
-
-        // Perform memory request
-        instructionMemory.request(programCounter);
-        lastFetchedProgramCounter <= programCounter;
-    endrule
-
-    rule decode;
-        let encodedInstruction = instructionMemory.first();
-
-        $display("%d [decode] decoding instruction at $%08x", cycleCounter, programCounter);
-
-        // Attempt to decode the instruction.  If register reads are blocked waiting
-        // for data (memory reads), this will return tagged invalid.
-        let decodeResult = decodeInstruction(encodedInstruction);
-        if (isValid(decodeResult)) begin
-            instructionMemory.deq();
-            let decodedInstruction = fromMaybe(?, decodeResult);
-            programCounter <= decodedInstruction.nextProgramCounter;
-
-            // Send the decode result to the output queue.
-            outputQueue.enq(decodedInstruction);
-        end
-    endrule
+    method Maybe#(DecodedInstruction) decode(Word programCounter, Word encodedInstruction);
+        return decodeInstruction(programCounter, encodedInstruction);
+    endmethod
 endmodule
