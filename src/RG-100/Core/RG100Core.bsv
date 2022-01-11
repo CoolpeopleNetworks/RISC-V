@@ -2,6 +2,7 @@ import RVCSRFile::*;
 import RVOperandForward::*;
 import RVRegisterFile::*;
 import RVTypes::*;
+import RVInstruction::*;
 
 import Instruction::*;
 
@@ -49,33 +50,34 @@ module mkCore#(
     //
     // Operand forwarding between stages
     //
-    RWire#(RVOperandForward) executionStageForward <- mkRWire();
-    RWire#(RVOperandForward) memoryAccessStageForward <- mkRWire();
+    Wire#(RVOperandForward) executionStageForward <- mkBypassWire();
+    Wire#(RVOperandForward) memoryAccessStageForward <- mkBypassWire();
 
-    // Interstage FIFOs
-    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkPipelineFIFO();
-    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkPipelineFIFO();
-    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkPipelineFIFO();
-
+    //
     // Stage 1 - Instruction fetch
+    //
     Reg#(ProgramCounter) lastFetchedProgramCounter <- mkReg('hFFFF);
     Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
 
     rule fetchInstruction (programCounter != lastFetchedProgramCounter);
-        $display("%d [fetch] Fetching instruction from $%08x", cycleCounter, programCounter);
+        $display("[%08d:%08x:fetch] Fetching instruction", cycleCounter, programCounter);
 
         // Perform memory request
         instructionMemory.request(programCounter);
         lastFetchedProgramCounter <= programCounter;
     endrule
 
+    //
     // Stage 2 - Instruction Decode
+    //
     InstructionDecoder instructionDecoder <- mkInstructionDecoder(registerFile, executionStageForward, memoryAccessStageForward);
+    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkPipelineFIFO();
+
     rule decodeInstruction;
         let encodedInstruction = instructionMemory.first;
         let currentProgramCounter = programCounter;
 
-        $display("%d [decode] decoding instruction at $%08x", cycleCounter, currentProgramCounter);
+        $display("[%08d:%08x:decode] decoding instruction", cycleCounter, currentProgramCounter);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
         // for data (memory reads), this will return tagged invalid.
@@ -90,23 +92,27 @@ module mkCore#(
         end
     endrule
 
+    //
     // Stage 3 - Instruction execution
+    //
     InstructionExecutor instructionExecutor <- mkInstructionExecutor();
+    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkPipelineFIFO();
+
     rule executeInstruction;
         let decodedInstruction = decodedInstructionQueue.first();
         decodedInstructionQueue.deq();
 
-        $display("%d [execute] executing instruction at $%08x", cycleCounter, decodedInstruction.programCounter);
+        $display("[%08d:%08x:execute] executing instruction", cycleCounter, decodedInstruction.programCounter);
 
         // Special case handling for specific SYSTEM instructions
         if (decodedInstruction.instructionType == SYSTEM) begin
             case(decodedInstruction.specific.SystemInstruction.operator)
                 ECALL: begin
-                    $display("%d [execute] ECALL instruction encountered at PC: %x - HALTED", cycleCounter, decodedInstruction.programCounter);
+                    $display("[%08d:%08x:execute] ECALL instruction encountered - HALTED", cycleCounter, decodedInstruction.programCounter);
                     $finish();
                 end
                 EBREAK: begin
-                    $display("%d [execute] EBREAK instruction encountered at PC: %x - HALTED", cycleCounter, decodedInstruction.programCounter);
+                    $display("[%08d:%08x:execute] EBREAK instruction encountered - HALTED", cycleCounter, decodedInstruction.programCounter);
                     $finish();
                 end
             endcase
@@ -121,7 +127,7 @@ module mkCore#(
         // If writeback data exists, that needs to be written into the previous pipeline 
         // stages using the register bypass.
         if (executedInstruction.writeBack matches tagged Valid .wb) begin
-            executionStageForward.wset(RVOperandForward{ 
+            executionStageForward <= (RVOperandForward{ 
                 rd: wb.rd,
                 value: tagged Valid wb.value
             });
@@ -130,16 +136,20 @@ module mkCore#(
         executedInstructionQueue.enq(executedInstruction);
     endrule
 
+    //
     // Stage 4 - Memory access
+    //
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
-    rule sendMemoryRequest;
+    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkPipelineFIFO();
+
+    rule memoryAccess;
         let executedInstruction = executedInstructionQueue.first();
         if(executedInstruction.loadStore matches tagged Valid .loadStore) begin
             // See if a load request has completed
             if (waitingForLoadToComplete) begin
                 if (dataMemory.isLoadReady()) begin
                     waitingForLoadToComplete <= False;
-                    $display("%d [memory] Load completed at $%08x", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                    $display("[%08d:%08x:memory] Load completed", cycleCounter, executedInstruction.decodedInstruction.programCounter);
 
                     let memoryResponse = dataMemory.first();
                     dataMemory.deq();
@@ -152,7 +162,7 @@ module mkCore#(
                     };
 
                     // Forward the received data
-                    memoryAccessStageForward.wset(RVOperandForward{
+                    memoryAccessStageForward <= (RVOperandForward{
                         rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
                         value: tagged Valid memoryResponse
                     });
@@ -165,18 +175,18 @@ module mkCore#(
                 dataMemory.request(loadStore.effectiveAddress, loadStore.storeValue, loadStore.writeEnable);
 
                 if (loadStore.writeEnable == 0) begin
-                    $display("%d [memory] Executing LOAD at $%08x", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                    $display("[%08d:%08x:memory] Executing LOAD", cycleCounter, executedInstruction.decodedInstruction.programCounter);
                     waitingForLoadToComplete <= True;
                 end else begin
                     // Instruction was a store, no need to wait for a response.
-                    $display("%d [memory] Executing STORE at $%08x", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                    $display("[%08d:%08x:memory] Executing STORE", cycleCounter, executedInstruction.decodedInstruction.programCounter);
                     executedInstructionQueue.deq();
                     memoryAccessCompletedQueue.enq(executedInstruction);
                 end
             end
         end else begin
             // Not a LOAD/STORE
-            $display("%d [memory] Not a load/store instruction at $%08x", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+            $display("[%08d:%08x:memory] Not a load/store instruction", cycleCounter, executedInstruction.decodedInstruction.programCounter);
 
             executedInstructionQueue.deq();
             memoryAccessCompletedQueue.enq(executedInstruction);
@@ -188,10 +198,11 @@ module mkCore#(
         let memoryAccessCompleteInstruction = memoryAccessCompletedQueue.first();
         memoryAccessCompletedQueue.deq();
 
-        $display("%d [writeback] executing instruction at $%08x", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
-
         if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
+            $display("[%08d:%08x:writeback] writing result (%08d) to register r%d", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
             registerFile.write(wb.rd, wb.value);
+        end else begin
+            $display("[%08d:%08x:writeback] NO-OP", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
         end
     endrule
 

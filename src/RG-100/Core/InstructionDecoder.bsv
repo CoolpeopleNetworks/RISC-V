@@ -1,8 +1,9 @@
 import RVOperandForward::*;
 import RVTypes::*;
 import RVRegisterFile::*;
+import RVInstruction::*;
+import RVALU::*;
 
-import ALU::*;
 import Instruction::*;
 
 // ================================================================
@@ -35,8 +36,8 @@ endinterface
 
 module mkInstructionDecoder#(
     RVRegisterFile registerFile,
-    RWire#(RVOperandForward) operandForward1,
-    RWire#(RVOperandForward) operandForward2
+    Wire#(RVOperandForward) operandForward1,
+    Wire#(RVOperandForward) operandForward2
 )(InstructionDecoder);
     // 
     // readRegister() - also check any operand forwarding.
@@ -46,7 +47,8 @@ module mkInstructionDecoder#(
 
         // If necessary, check forwarded operands from later stages
         if (rx != 0) begin
-            if (operandForward1.wget() matches tagged Valid .of) begin
+            let of = operandForward1;
+//            if (operandForward1 matches tagged Valid .of) begin
                 if (of.rd == rx) begin
                     if (isValid(of.value)) begin
                         valueResult = of.value;
@@ -54,10 +56,11 @@ module mkInstructionDecoder#(
                         valueResult = tagged Invalid;
                     end
                 end
-            end
+//            end
 
             // Check bypassB
-            if (operandForward2.wget() matches tagged Valid .of) begin
+//            if (operandForward2 matches tagged Valid .of) begin
+                of = operandForward2;
                 if (of.rd == rx) begin
                     if (isValid(of.value)) begin
                         valueResult = of.value;
@@ -65,7 +68,7 @@ module mkInstructionDecoder#(
                         valueResult = tagged Invalid;
                     end
                 end
-            end
+//            end
         end
 
         return valueResult;

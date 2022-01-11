@@ -1,7 +1,9 @@
-import ALU::*;
 import FIFO::*;
 import RVOperandForward::*;
 import RVTypes::*;
+import RVInstruction::*;
+import RVALU::*;
+
 import Instruction::*;
 
 // ================================================================
@@ -18,7 +20,7 @@ module mkInstructionExecutor(InstructionExecutor);
     //
     // ALU
     //
-    ALU alu <- mkALU();
+    RVALU alu <- mkRVALU();
 
     //
     // AUIPC

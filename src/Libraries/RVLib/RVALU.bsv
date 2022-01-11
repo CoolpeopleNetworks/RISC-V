@@ -13,13 +13,13 @@ typedef enum {
     XOR
 } ALUOperator deriving(Bits, Eq);
 
-interface ALU;
+interface RVALU;
     method Word execute(Word operand1, Word operand2, ALUOperator operator);
     method Word execute_immediate(Word operand1, Bit#(12) immediate, ALUOperator operator);
 endinterface
 
 (* synthesize *)
-module mkALU(ALU);
+module mkRVALU(RVALU);
     function Word setLessThanUnsigned(Word operand1, Word operand2);
         return (operand1 < operand2 ? 1 : 0);
     endfunction

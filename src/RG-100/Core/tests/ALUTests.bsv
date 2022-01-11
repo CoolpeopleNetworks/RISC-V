@@ -1,9 +1,9 @@
-import ALU::*;
+import RVALU::*;
 import RVTypes::*;
 
 (* synthesize *)
 module mkALUTests(Empty);
-    ALU alu <- mkALU();
+    RVALU alu <- mkRVALU();
     Reg#(Word) testNumber <- mkReg(0);
 
     rule test;
