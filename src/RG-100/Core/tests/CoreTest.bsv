@@ -26,6 +26,9 @@ module mkInstructionMemory(InstructionMemory);
         memory.response.deq();
     endmethod
 
+    method Bool canDeq();
+        return memory.response.canDeq();
+    endmethod
 endmodule
 
 (* synthesize *)

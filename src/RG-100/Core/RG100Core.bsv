@@ -50,8 +50,8 @@ module mkCore#(
     //
     // Operand forwarding between stages
     //
-    Wire#(RVOperandForward) executionStageForward <- mkBypassWire();
-    Wire#(RVOperandForward) memoryAccessStageForward <- mkBypassWire();
+    RWire#(RVOperandForward) executionStageForward <- mkRWire();
+    RWire#(RVOperandForward) memoryAccessStageForward <- mkRWire();
 
     //
     // Stage 1 - Instruction fetch
@@ -71,8 +71,9 @@ module mkCore#(
     // Stage 2 - Instruction Decode
     //
     InstructionDecoder instructionDecoder <- mkInstructionDecoder(registerFile, executionStageForward, memoryAccessStageForward);
-    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkPipelineFIFO();
+    FIFO#(DecodedInstruction) decodedInstructionQueue <- mkFIFO1();
 
+    (* fire_when_enabled *)
     rule decodeInstruction;
         let encodedInstruction = instructionMemory.first;
         let currentProgramCounter = programCounter;
@@ -96,8 +97,9 @@ module mkCore#(
     // Stage 3 - Instruction execution
     //
     InstructionExecutor instructionExecutor <- mkInstructionExecutor();
-    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkPipelineFIFO();
+    FIFO#(ExecutedInstruction) executedInstructionQueue <- mkFIFO1();
 
+    (* fire_when_enabled *)
     rule executeInstruction;
         let decodedInstruction = decodedInstructionQueue.first();
         decodedInstructionQueue.deq();
@@ -127,7 +129,7 @@ module mkCore#(
         // If writeback data exists, that needs to be written into the previous pipeline 
         // stages using the register bypass.
         if (executedInstruction.writeBack matches tagged Valid .wb) begin
-            executionStageForward <= (RVOperandForward{ 
+            executionStageForward.wset(RVOperandForward{ 
                 rd: wb.rd,
                 value: tagged Valid wb.value
             });
@@ -140,8 +142,9 @@ module mkCore#(
     // Stage 4 - Memory access
     //
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
-    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkPipelineFIFO();
+    FIFO#(ExecutedInstruction) memoryAccessCompletedQueue <- mkFIFO1();
 
+    (* fire_when_enabled *)
     rule memoryAccess;
         let executedInstruction = executedInstructionQueue.first();
         if(executedInstruction.loadStore matches tagged Valid .loadStore) begin
@@ -162,7 +165,7 @@ module mkCore#(
                     };
 
                     // Forward the received data
-                    memoryAccessStageForward <= (RVOperandForward{
+                    memoryAccessStageForward.wset(RVOperandForward{
                         rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
                         value: tagged Valid memoryResponse
                     });
@@ -194,6 +197,7 @@ module mkCore#(
     endrule
 
     // Stage 5 - Register Writeback
+    (* fire_when_enabled *)
     rule writeBack;
         let memoryAccessCompleteInstruction = memoryAccessCompletedQueue.first();
         memoryAccessCompletedQueue.deq();
@@ -206,6 +210,7 @@ module mkCore#(
         end
     endrule
 
+    (* fire_when_enabled, no_implicit_conditions *)
     rule incrementCycleCounter;
         cycleCounter <= cycleCounter + 1;
         if (cycleCounter > 250) begin
