@@ -144,7 +144,7 @@ module mkInstructionDecoder#(
 
             // Branch prediction (the signed offset is relative to rs1 but since
             // that's not available, we ignore it)
-            let targetAddress = programCounter + signExtend(offset << 1);
+            let targetAddress = programCounter + signExtend(offset);
             let isTaken = predict_branch(programCounter, targetAddress);
             let nextProgramCounter = (isTaken ? targetAddress : programCounter + 4);
 

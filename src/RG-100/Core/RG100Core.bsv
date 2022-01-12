@@ -60,7 +60,7 @@ module mkCore#(
     Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
 
     rule fetchInstruction (programCounter != lastFetchedProgramCounter);
-        $display("[%08d:%08x:fetch] Fetching instruction", cycleCounter, programCounter);
+        $display("[%08d:%08x:fetch] fetching instruction", cycleCounter, programCounter);
 
         // Perform memory request
         instructionMemory.request(programCounter);
@@ -78,7 +78,7 @@ module mkCore#(
         let encodedInstruction = instructionMemory.first;
         let currentProgramCounter = programCounter;
 
-        $display("[%08d:%08x:decode] decoding instruction", cycleCounter, currentProgramCounter);
+        $display("[%08d:%08x:decode] decoding instruction: %08x", cycleCounter, currentProgramCounter, encodedInstruction);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
         // for data (memory reads), this will return tagged invalid.
@@ -86,6 +86,8 @@ module mkCore#(
         if (isValid(decodeResult)) begin
             instructionMemory.deq();
             let decodedInstruction = fromMaybe(?, decodeResult);
+
+            $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, currentProgramCounter, decodedInstruction.nextProgramCounter);
             programCounter <= decodedInstruction.nextProgramCounter;
 
             // Send the decode result to the output queue.
@@ -135,6 +137,7 @@ module mkCore#(
             });
         end
 
+        $display("[%08d:%08x:execute] complete", cycleCounter, decodedInstruction.programCounter);
         executedInstructionQueue.enq(executedInstruction);
     endrule
 
@@ -150,46 +153,46 @@ module mkCore#(
         if(executedInstruction.loadStore matches tagged Valid .loadStore) begin
             // See if a load request has completed
             if (waitingForLoadToComplete) begin
-                if (dataMemory.isLoadReady()) begin
-                    waitingForLoadToComplete <= False;
-                    $display("[%08d:%08x:memory] Load completed", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                // if (dataMemory.isLoadReady()) begin
+                //     waitingForLoadToComplete <= False;
+                //     $display("[%08d:%08x:memory] Load completed", cycleCounter, executedInstruction.decodedInstruction.programCounter);
 
-                    let memoryResponse = dataMemory.first();
-                    dataMemory.deq();
+                //     let memoryResponse = dataMemory.first();
+                //     dataMemory.deq();
 
-                    // Save the data that will be written back into the register file on the
-                    // writeback pipeline stage.
-                    executedInstruction.writeBack = tagged Valid Writeback {
-                        rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
-                        value: memoryResponse
-                    };
+                //     // Save the data that will be written back into the register file on the
+                //     // writeback pipeline stage.
+                //     executedInstruction.writeBack = tagged Valid Writeback {
+                //         rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
+                //         value: memoryResponse
+                //     };
 
-                    // Forward the received data
-                    memoryAccessStageForward.wset(RVOperandForward{
-                        rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
-                        value: tagged Valid memoryResponse
-                    });
+                //     // Forward the received data
+                //     memoryAccessStageForward.wset(RVOperandForward{
+                //         rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
+                //         value: tagged Valid memoryResponse
+                //     });
 
-                    executedInstructionQueue.deq();
-                    memoryAccessCompletedQueue.enq(executedInstruction);
-                end
+                //     executedInstructionQueue.deq();
+                //     memoryAccessCompletedQueue.enq(executedInstruction);
+                // end
             end else begin
                 // NOTE: Alignment checks were already performed during the execution stage.
-                dataMemory.request(loadStore.effectiveAddress, loadStore.storeValue, loadStore.writeEnable);
+                // dataMemory.request(loadStore.effectiveAddress, loadStore.storeValue, loadStore.writeEnable);
 
-                if (loadStore.writeEnable == 0) begin
-                    $display("[%08d:%08x:memory] Executing LOAD", cycleCounter, executedInstruction.decodedInstruction.programCounter);
-                    waitingForLoadToComplete <= True;
-                end else begin
-                    // Instruction was a store, no need to wait for a response.
-                    $display("[%08d:%08x:memory] Executing STORE", cycleCounter, executedInstruction.decodedInstruction.programCounter);
-                    executedInstructionQueue.deq();
-                    memoryAccessCompletedQueue.enq(executedInstruction);
-                end
+                // if (loadStore.writeEnable == 0) begin
+                //     $display("[%08d:%08x:memory] Executing LOAD", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                //     waitingForLoadToComplete <= True;
+                // end else begin
+                //     // Instruction was a store, no need to wait for a response.
+                //     $display("[%08d:%08x:memory] Executing STORE", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                //     executedInstructionQueue.deq();
+                //     memoryAccessCompletedQueue.enq(executedInstruction);
+                // end
             end
         end else begin
             // Not a LOAD/STORE
-            $display("[%08d:%08x:memory] Not a load/store instruction", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+            $display("[%08d:%08x:memory] not a load/store instruction", cycleCounter, executedInstruction.decodedInstruction.programCounter);
 
             executedInstructionQueue.deq();
             memoryAccessCompletedQueue.enq(executedInstruction);
@@ -203,7 +206,7 @@ module mkCore#(
         memoryAccessCompletedQueue.deq();
 
         if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
-            $display("[%08d:%08x:writeback] writing result (%08d) to register r%d", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
+            $display("[%08d:%08x:writeback] writing result ($%08d) to register x%d", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
             registerFile.write(wb.rd, wb.value);
         end else begin
             $display("[%08d:%08x:writeback] NO-OP", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
@@ -214,6 +217,7 @@ module mkCore#(
     rule incrementCycleCounter;
         cycleCounter <= cycleCounter + 1;
         if (cycleCounter > 250) begin
+            $display("[%08d] Cycle limit reached...exitting.", cycleCounter);
             $finish();
         end
     endrule
