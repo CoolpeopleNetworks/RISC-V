@@ -62,25 +62,32 @@ module mkCore#(
     // Stage 1 - Instruction fetch
     //
     Reg#(ProgramCounter) fetchProgramCounter <- mkReg(initialProgramCounter);
-
+    // This FIFO holds the program counter value for the instruction that's being
+    // fetched.
     FIFO#(ProgramCounter) programCounterQueue <- mkPipelineFIFO();
 
     (* fire_when_enabled *)
     rule fetchInstruction;
-        let thisPC = fetchProgramCounter;
-        if (programCounterForward.wget() matches tagged Valid .tpc) begin
-            $display("[%08d:%08x:fetch] forwarded PC = $%08x", cycleCounter, tpc, tpc);
-            thisPC = tpc;
+        // Get the current program counter from the 'fetchProgramCounter' register, if the 
+        // decode stage wants to override that value (due to a branch), read that 
+        // from 'programCounterForward'.
+        let programCounter = fetchProgramCounter;
+        if (programCounterForward.wget() matches tagged Valid .programCounterOverride) begin
+            $display("[%08d:%08x:fetch] forwarded PC = $%08x", cycleCounter, programCounterOverride, programCounterOverride);
+            programCounter = programCounterOverride;
         end
 
-        $display("[%08d:%08x:fetch] fetching instruction", cycleCounter, thisPC);
+        $display("[%08d:%08x:fetch] fetching instruction", cycleCounter, programCounter);
 
         // Perform memory request
-        instructionMemory.request(thisPC);
+        instructionMemory.request(programCounter);
 
-        programCounterQueue.enq(thisPC);
+        // Tell the decode stage what the program counter for the insruction it'll receive.
+        programCounterQueue.enq(programCounter);
 
-        fetchProgramCounter <= thisPC + 4;
+        // Point to the next instruction to fetch.  If the decode stage needs to override this
+        // (due to a branch), the new PC will be forwarded here using 'programCounterForward'
+        fetchProgramCounter <= programCounter + 4;
     endrule
 
     //
@@ -98,17 +105,18 @@ module mkCore#(
         $display("[%08d:%08x:decode] decoding instruction: %08x", cycleCounter, programCounter, encodedInstruction);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
-        // for data (memory reads), this will return tagged invalid.
+        // for data (memory reads), this will return tagged invalid (causing this stage to stall)
         let decodeResult = instructionDecoder.decode(programCounter, encodedInstruction);
         if (isValid(decodeResult)) begin
             instructionMemory.deq();
             let decodedInstruction = fromMaybe(?, decodeResult);
 
             $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, programCounter, decodedInstruction.nextProgramCounter);
+
+            // If the decoded instruction modified the next PC from what's expected,
+            // communicate that to the fetch stage to is fetches the correct instruction.
             if (decodedInstruction.nextProgramCounter != programCounter + 4)
                 programCounterForward.wset(decodedInstruction.nextProgramCounter);
-
-            //programCounter <= decodedInstruction.nextProgramCounter;
 
             // Send the decode result to the output queue.
             decodedInstructionQueue.enq(decodedInstruction);
