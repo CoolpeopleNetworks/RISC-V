@@ -120,45 +120,67 @@ module mkInstructionDecoder#(
         offset[10:5] = bTypeInstruction.immediate10_5;
         offset[4:1] = bTypeInstruction.immediate4_1;
 
-        let branchOperator = case(bTypeInstruction.func3)
-            3'b000: BEQ;
-            3'b001: BNE;
-            3'b100: BLT;
-            3'b101: BGE;
-            3'b110: BLTU;
-            3'b111: BGEU;
-            default: UNSUPPORTED_BRANCH_OPERATOR;
-        endcase;
+        let rs1Result = readRegister1(bTypeInstruction.rs1);
+        let rs2Result = readRegister2(bTypeInstruction.rs2);
 
-        if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
-            return tagged Valid DecodedInstruction{
-                programCounter: programCounter,
-                nextProgramCounter: programCounter,
-                instructionType: UNSUPPORTED,
-                rs1: ?,
-                rs2: ?,
-                specific: tagged UnsupportedInstruction UnsupportedInstruction{}
-            };
+        if (isValid(rs1Result) == False || isValid(rs2Result) == False) begin
+            return tagged Invalid;
         end else begin
-            let result = tagged Invalid;
+            let rs1 = fromMaybe(?, rs1Result);
+            let rs2 = fromMaybe(?, rs2Result);
 
-            // Branch prediction (the signed offset is relative to rs1 but since
-            // that's not available, we ignore it)
-            let targetAddress = programCounter + signExtend(offset);
-            let isTaken = predict_branch(programCounter, targetAddress);
-            let nextProgramCounter = (isTaken ? targetAddress : programCounter + 4);
+            SignedInt rs1s = unpack(rs1);
+            SignedInt rs2s = unpack(rs2);
 
-            return tagged Valid DecodedInstruction{
-                programCounter: programCounter,
-                nextProgramCounter: nextProgramCounter,
-                instructionType: BRANCH,
-                rs1: ?,
-                rs2: ?,
-                specific: tagged BranchInstruction BranchInstruction{
-                    offset: offset,
-                    operator: branchOperator
-                }
-            };
+            let branchOperator = case(bTypeInstruction.func3)
+                3'b000: BEQ;
+                3'b001: BNE;
+                3'b100: BLT;
+                3'b101: BGE;
+                3'b110: BLTU;
+                3'b111: BGEU;
+                default: UNSUPPORTED_BRANCH_OPERATOR;
+            endcase;
+
+            if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
+                return tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: programCounter,
+                    instructionType: UNSUPPORTED,
+                    rs1: ?,
+                    rs2: ?,
+                    specific: tagged UnsupportedInstruction UnsupportedInstruction{}
+                };
+            end else begin
+                let result = tagged Invalid;
+                
+                // Branch prediction (the signed offset is relative to rs1 but since
+                // that's not available, we ignore it)
+                let targetAddress = programCounter + signExtend(offset);
+    //            let isTaken = predict_branch(programCounter, targetAddress);
+                let isTaken = case(branchOperator)
+                    BEQ: (rs1 == rs2 ? True : False);
+                    BNE: (rs1 != rs2 ? True : False);
+                    BLT: (rs1s < rs2s ? True : False);
+                    BGE: (rs1s >= rs2s ? True : False);
+                    BLTU: (rs1 < rs2 ? True : False);
+                    BGEU: (rs1 >= rs2 ? True : False);
+                endcase;
+
+                let nextProgramCounter = (isTaken ? targetAddress : programCounter + 4);
+
+                return tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: nextProgramCounter,
+                    instructionType: BRANCH,
+                    rs1: ?,
+                    rs2: ?,
+                    specific: tagged BranchInstruction BranchInstruction{
+                        offset: offset,
+                        operator: branchOperator
+                    }
+                };
+            end
         end
     endfunction
 
@@ -287,12 +309,12 @@ module mkInstructionDecoder#(
     function Maybe#(DecodedInstruction) decode_op(Word programCounter, RtypeInstruction rTypeInstruction);
         // Assemble the alu operation code from the func3 and func7 fields of the instruction.
         let aluOperator = case(rTypeInstruction.func3)
-            3'b000: (rTypeInstruction.func7[6] == 0 ? ADD : SUB);
+            3'b000: (rTypeInstruction.func7[5] == 0 ? ADD : SUB);
             3'b001: SLL;
             3'b010: SLT;
             3'b011: SLTU;
             3'b100: XOR;
-            3'b101: (rTypeInstruction.func7[6] == 0 ? SRL : SRA);
+            3'b101: (rTypeInstruction.func7[5] == 0 ? SRL : SRA);
             3'b110: OR;
             3'b111: AND;
         endcase;

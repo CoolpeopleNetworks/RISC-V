@@ -131,13 +131,15 @@ module mkCore#(
         // If writeback data exists, that needs to be written into the previous pipeline 
         // stages using the register bypass.
         if (executedInstruction.writeBack matches tagged Valid .wb) begin
+            $display("[%08d:%08x:execute] complete (WB: x%d = %08x)", cycleCounter, decodedInstruction.programCounter, wb.rd, wb.value);
             executionStageForward.wset(RVOperandForward{ 
                 rd: wb.rd,
                 value: tagged Valid wb.value
             });
+        end else begin
+            $display("[%08d:%08x:execute] complete", cycleCounter, decodedInstruction.programCounter);
         end
 
-        $display("[%08d:%08x:execute] complete", cycleCounter, decodedInstruction.programCounter);
         executedInstructionQueue.enq(executedInstruction);
     endrule
 
@@ -206,7 +208,7 @@ module mkCore#(
         memoryAccessCompletedQueue.deq();
 
         if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
-            $display("[%08d:%08x:writeback] writing result ($%08d) to register x%d", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
+            $display("[%08d:%08x:writeback] writing result ($%08x) to register x%d", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
             registerFile.write(wb.rd, wb.value);
         end else begin
             $display("[%08d:%08x:writeback] NO-OP", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
@@ -221,5 +223,4 @@ module mkCore#(
             $finish();
         end
     endrule
-
 endmodule
