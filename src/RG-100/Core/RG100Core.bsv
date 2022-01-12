@@ -54,17 +54,33 @@ module mkCore#(
     RWire#(RVOperandForward) memoryAccessStageForward <- mkRWire();
 
     //
+    // Program counter forward from decode to fetch stage.
+    //
+    RWire#(ProgramCounter) programCounterForward <- mkRWire();
+
+    //
     // Stage 1 - Instruction fetch
     //
-    Reg#(ProgramCounter) lastFetchedProgramCounter <- mkReg('hFFFF);
-    Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
+    Reg#(ProgramCounter) fetchProgramCounter <- mkReg(initialProgramCounter);
 
-    rule fetchInstruction (programCounter != lastFetchedProgramCounter);
-        $display("[%08d:%08x:fetch] fetching instruction", cycleCounter, programCounter);
+    FIFO#(ProgramCounter) programCounterQueue <- mkPipelineFIFO();
+
+    (* fire_when_enabled *)
+    rule fetchInstruction;
+        let thisPC = fetchProgramCounter;
+        if (programCounterForward.wget() matches tagged Valid .tpc) begin
+            $display("[%08d:%08x:fetch] forwarded PC = $%08x", cycleCounter, tpc, tpc);
+            thisPC = tpc;
+        end
+
+        $display("[%08d:%08x:fetch] fetching instruction", cycleCounter, thisPC);
 
         // Perform memory request
-        instructionMemory.request(programCounter);
-        lastFetchedProgramCounter <= programCounter;
+        instructionMemory.request(thisPC);
+
+        programCounterQueue.enq(thisPC);
+
+        fetchProgramCounter <= thisPC + 4;
     endrule
 
     //
@@ -76,19 +92,23 @@ module mkCore#(
     (* fire_when_enabled *)
     rule decodeInstruction;
         let encodedInstruction = instructionMemory.first;
-        let currentProgramCounter = programCounter;
+        let programCounter = programCounterQueue.first();
+        programCounterQueue.deq();
 
-        $display("[%08d:%08x:decode] decoding instruction: %08x", cycleCounter, currentProgramCounter, encodedInstruction);
+        $display("[%08d:%08x:decode] decoding instruction: %08x", cycleCounter, programCounter, encodedInstruction);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
         // for data (memory reads), this will return tagged invalid.
-        let decodeResult = instructionDecoder.decode(currentProgramCounter, encodedInstruction);
+        let decodeResult = instructionDecoder.decode(programCounter, encodedInstruction);
         if (isValid(decodeResult)) begin
             instructionMemory.deq();
             let decodedInstruction = fromMaybe(?, decodeResult);
 
-            $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, currentProgramCounter, decodedInstruction.nextProgramCounter);
-            programCounter <= decodedInstruction.nextProgramCounter;
+            $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, programCounter, decodedInstruction.nextProgramCounter);
+            if (decodedInstruction.nextProgramCounter != programCounter + 4)
+                programCounterForward.wset(decodedInstruction.nextProgramCounter);
+
+            //programCounter <= decodedInstruction.nextProgramCounter;
 
             // Send the decode result to the output queue.
             decodedInstructionQueue.enq(decodedInstruction);
