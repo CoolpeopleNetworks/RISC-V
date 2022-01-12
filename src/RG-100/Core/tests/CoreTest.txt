@@ -1,11 +1,11 @@
 /* 
-0x0000: ADDI x2, x0, 10
-0x0004: ADDI x1, x0, 1
+ADDI x2, x0, 10
+ADDI x1, x0, 1
 
 loop:
-0x0008: SUB x2, x2, x1
-0x000C: BLT x0, x2, loop
-0x0010: ECALL
+   SUB x2, x2, x1
+   BLT x0, x2, loop
+ECALL
 
 https://www.kvakil.me/venus/
 */
