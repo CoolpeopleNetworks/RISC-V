@@ -99,8 +99,7 @@ module mkCore#(
     (* fire_when_enabled *)
     rule decodeInstruction;
         let encodedInstruction = instructionMemory.first;
-        let programCounter = programCounterQueue.first();
-        programCounterQueue.deq();
+        let programCounter = programCounterQueue.first;
 
         $display("[%08d:%08x:decode] decoding instruction: %08x", cycleCounter, programCounter, encodedInstruction);
 
@@ -109,6 +108,8 @@ module mkCore#(
         let decodeResult = instructionDecoder.decode(programCounter, encodedInstruction);
         if (isValid(decodeResult)) begin
             instructionMemory.deq();
+            programCounterQueue.deq();
+
             let decodedInstruction = fromMaybe(?, decodeResult);
 
             $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, programCounter, decodedInstruction.nextProgramCounter);
