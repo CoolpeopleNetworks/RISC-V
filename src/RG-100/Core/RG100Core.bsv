@@ -115,7 +115,7 @@ module mkCore#(
             $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, programCounter, decodedInstruction.nextProgramCounter);
 
             // If the decoded instruction modified the next PC from what's expected,
-            // communicate that to the fetch stage to is fetches the correct instruction.
+            // communicate that to the fetch stage so it fetches the correct instruction.
             if (decodedInstruction.nextProgramCounter != programCounter + 4)
                 programCounterForward.wset(decodedInstruction.nextProgramCounter);
 
