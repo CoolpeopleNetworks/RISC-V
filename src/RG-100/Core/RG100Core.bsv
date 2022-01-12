@@ -158,7 +158,7 @@ module mkCore#(
         // !todo
 
         // If writeback data exists, that needs to be written into the previous pipeline 
-        // stages using the register bypass.
+        // stages using operand forwarding.
         if (executedInstruction.writeBack matches tagged Valid .wb) begin
             $display("[%08d:%08x:execute] complete (WB: x%d = %08x)", cycleCounter, decodedInstruction.programCounter, wb.rd, wb.value);
             executionStageForward.wset(RVOperandForward{ 
