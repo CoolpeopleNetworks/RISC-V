@@ -9,6 +9,8 @@ import DataMemory::*;
 import Port::*;
 import MemUtil::*;
 
+import CacheController::*;
+
 (* synthesize *)
 module mkInstructionMemory(InstructionMemory);
     RegFile#(Word, Word) instructionRegisterFile <- mkRegFileFullLoad("./src/RG-100/Core/tests/CoreTest.txt");
@@ -67,5 +69,5 @@ module mkCoreTest(Empty);
     DataMemory dataMemory <- mkDataMemory();
 
     // Core
-    RG100Core core <- mkCore(0, instructionMemory, dataMemory);
+    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory, 250);
 endmodule

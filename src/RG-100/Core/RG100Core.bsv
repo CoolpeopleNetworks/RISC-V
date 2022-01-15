@@ -16,6 +16,10 @@ import SpecialFIFOs::*;
 import InstructionMemory::*;
 import DataMemory::*;
 
+// ================================================================
+// Exports
+export RG100Core (..), mkRG100Core;
+
 interface RG100Core;
 endinterface
 
@@ -32,15 +36,21 @@ endinterface
 // 5. Write Back
 //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
 //
-module mkCore#(
+module mkRG100Core#(
         ProgramCounter initialProgramCounter,
         InstructionMemory instructionMemory,
-        DataMemory dataMemory
+        DataMemory dataMemory,
+        Word64 cLimit
 )(RG100Core);
     //
-    // Cycle counter
+    // Cycle Limit (Debugging)
     //
-    Reg#(Word) cycleCounter <- mkReg(0);
+    Reg#(Word64) cycleLimit <- mkReg(cLimit);  // 0 = no limit
+
+    //
+    // CSR (Control and Status Register) file
+    //
+    RVCSRFile csrFile <- mkRVCSRFile();
 
     //
     // Register file
@@ -73,11 +83,11 @@ module mkCore#(
         // from 'programCounterForward'.
         let programCounter = fetchProgramCounter;
         if (programCounterForward.wget() matches tagged Valid .programCounterOverride) begin
-            $display("[%08d:%08x:fetch] forwarded PC = $%08x", cycleCounter, programCounterOverride, programCounterOverride);
+            $display("[%08d:%08x:fetch] forwarded PC = $%08x", csrFile.cycle_counter, programCounterOverride, programCounterOverride);
             programCounter = programCounterOverride;
         end
 
-        $display("[%08d:%08x:fetch] fetching instruction", cycleCounter, programCounter);
+        $display("[%08d:%08x:fetch] fetching instruction", csrFile.cycle_counter, programCounter);
 
         // Perform memory request
         instructionMemory.request(programCounter);
@@ -101,7 +111,7 @@ module mkCore#(
         let encodedInstruction = instructionMemory.first;
         let programCounter = programCounterQueue.first;
 
-        $display("[%08d:%08x:decode] decoding instruction: %08x", cycleCounter, programCounter, encodedInstruction);
+        $display("[%08d:%08x:decode] decoding instruction: %08x", csrFile.cycle_counter, programCounter, encodedInstruction);
 
         // Attempt to decode the instruction.  If register reads are blocked waiting
         // for data (memory reads), this will return tagged invalid (causing this stage to stall)
@@ -112,7 +122,7 @@ module mkCore#(
 
             let decodedInstruction = fromMaybe(?, decodeResult);
 
-            $display("[%08d:%08x:decode] next PC: %08x", cycleCounter, programCounter, decodedInstruction.nextProgramCounter);
+            $display("[%08d:%08x:decode] next PC: %08x", csrFile.cycle_counter, programCounter, decodedInstruction.nextProgramCounter);
 
             // If the decoded instruction modified the next PC from what's expected,
             // communicate that to the fetch stage so it fetches the correct instruction.
@@ -135,17 +145,17 @@ module mkCore#(
         let decodedInstruction = decodedInstructionQueue.first();
         decodedInstructionQueue.deq();
 
-        $display("[%08d:%08x:execute] executing instruction", cycleCounter, decodedInstruction.programCounter);
+        $display("[%08d:%08x:execute] executing instruction", csrFile.cycle_counter, decodedInstruction.programCounter);
 
         // Special case handling for specific SYSTEM instructions
         if (decodedInstruction.instructionType == SYSTEM) begin
             case(decodedInstruction.specific.SystemInstruction.operator)
                 ECALL: begin
-                    $display("[%08d:%08x:execute] ECALL instruction encountered - HALTED", cycleCounter, decodedInstruction.programCounter);
+                    $display("[%08d:%08x:execute] ECALL instruction encountered - HALTED", csrFile.cycle_counter, decodedInstruction.programCounter);
                     $finish();
                 end
                 EBREAK: begin
-                    $display("[%08d:%08x:execute] EBREAK instruction encountered - HALTED", cycleCounter, decodedInstruction.programCounter);
+                    $display("[%08d:%08x:execute] EBREAK instruction encountered - HALTED", csrFile.cycle_counter, decodedInstruction.programCounter);
                     $finish();
                 end
             endcase
@@ -160,13 +170,13 @@ module mkCore#(
         // If writeback data exists, that needs to be written into the previous pipeline 
         // stages using operand forwarding.
         if (executedInstruction.writeBack matches tagged Valid .wb) begin
-            $display("[%08d:%08x:execute] complete (WB: x%d = %08x)", cycleCounter, decodedInstruction.programCounter, wb.rd, wb.value);
+            $display("[%08d:%08x:execute] complete (WB: x%d = %08x)", csrFile.cycle_counter, decodedInstruction.programCounter, wb.rd, wb.value);
             executionStageForward.wset(RVOperandForward{ 
                 rd: wb.rd,
                 value: tagged Valid wb.value
             });
         end else begin
-            $display("[%08d:%08x:execute] complete", cycleCounter, decodedInstruction.programCounter);
+            $display("[%08d:%08x:execute] complete", csrFile.cycle_counter, decodedInstruction.programCounter);
         end
 
         executedInstructionQueue.enq(executedInstruction);
@@ -186,7 +196,7 @@ module mkCore#(
             if (waitingForLoadToComplete) begin
                 // if (dataMemory.isLoadReady()) begin
                 //     waitingForLoadToComplete <= False;
-                //     $display("[%08d:%08x:memory] Load completed", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                //     $display("[%08d:%08x:memory] Load completed", csrFile.cycle_counter, executedInstruction.decodedInstruction.programCounter);
 
                 //     let memoryResponse = dataMemory.first();
                 //     dataMemory.deq();
@@ -212,18 +222,18 @@ module mkCore#(
                 // dataMemory.request(loadStore.effectiveAddress, loadStore.storeValue, loadStore.writeEnable);
 
                 // if (loadStore.writeEnable == 0) begin
-                //     $display("[%08d:%08x:memory] Executing LOAD", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                //     $display("[%08d:%08x:memory] Executing LOAD", csrFile.cycle_counter, executedInstruction.decodedInstruction.programCounter);
                 //     waitingForLoadToComplete <= True;
                 // end else begin
                 //     // Instruction was a store, no need to wait for a response.
-                //     $display("[%08d:%08x:memory] Executing STORE", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+                //     $display("[%08d:%08x:memory] Executing STORE", csrFile.cycle_counter, executedInstruction.decodedInstruction.programCounter);
                 //     executedInstructionQueue.deq();
                 //     memoryAccessCompletedQueue.enq(executedInstruction);
                 // end
             end
         end else begin
             // Not a LOAD/STORE
-            $display("[%08d:%08x:memory] not a load/store instruction", cycleCounter, executedInstruction.decodedInstruction.programCounter);
+            $display("[%08d:%08x:memory] not a load/store instruction", csrFile.cycle_counter, executedInstruction.decodedInstruction.programCounter);
 
             executedInstructionQueue.deq();
             memoryAccessCompletedQueue.enq(executedInstruction);
@@ -237,19 +247,22 @@ module mkCore#(
         memoryAccessCompletedQueue.deq();
 
         if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
-            $display("[%08d:%08x:writeback] writing result ($%08x) to register x%d", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
+            $display("[%08d:%08x:writeback] writing result ($%08x) to register x%d", csrFile.cycle_counter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
             registerFile.write(wb.rd, wb.value);
         end else begin
-            $display("[%08d:%08x:writeback] NO-OP", cycleCounter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
+            $display("[%08d:%08x:writeback] NO-OP", csrFile.cycle_counter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
         end
+
+        csrFile.increment_instructions_retired_counter();
     endrule
 
     (* fire_when_enabled, no_implicit_conditions *)
     rule incrementCycleCounter;
-        cycleCounter <= cycleCounter + 1;
-        if (cycleCounter > 250) begin
-            $display("[%08d] Cycle limit reached...exitting.", cycleCounter);
+        if (cycleLimit > 0 && csrFile.cycle_counter > cycleLimit) begin
+            $display("[%08d] Cycle limit reached...exitting.", csrFile.cycle_counter);
             $finish();
         end
+
+        csrFile.increment_cycle_counter();
     endrule
 endmodule

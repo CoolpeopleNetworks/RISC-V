@@ -20,6 +20,7 @@ typedef enum {
 } CSR deriving(Bits, Eq);
 
 interface RVCSRFile;
+    method Word64 cycle_counter;
     method Action increment_cycle_counter;
     method Action increment_instructions_retired_counter;
 endinterface
@@ -29,26 +30,30 @@ module mkRVCSRFile(RVCSRFile);
         return 0;
     endfunction
 
-    Reg#(Word64)    cycle_counter <- mkReg(0);
-    Reg#(Word64)    time_counter <- mkReg(0);
-    Reg#(Word64)    instructions_retired_counter <- mkReg(0);
+    Reg#(Word64)    cycleCounter <- mkReg(0);
+    Reg#(Word64)    timeCounter <- mkReg(0);
+    Reg#(Word64)    instructionsRetiredCounter <- mkReg(0);
 
-    Reg#(Word)      mstatus <- mkReg(getMisa());
-    Reg#(Word)      misa <- mkReadOnlyReg(0);
+    Reg#(Word)      mstatus <- mkRegU();
+    Reg#(Word)      misa <- mkReadOnlyReg(getMisa());
 
-    Reg#(Word)      mcycle      = readOnlyReg(truncate(cycle_counter));
-    Reg#(Word)      mtimer      = readOnlyReg(0);
-    Reg#(Word)      minstret    = readOnlyReg(truncate(instructions_retired_counter));
+    Reg#(Word)      mcycle      = readOnlyReg(truncate(cycleCounter));
+    Reg#(Word)      mtimer      = readOnlyReg(truncate(timeCounter));
+    Reg#(Word)      minstret    = readOnlyReg(truncate(instructionsRetiredCounter));
 
-    Reg#(Word)      mcycleh     = readOnlyReg(truncateLSB(cycle_counter));
-    Reg#(Word)      mtimeh      = readOnlyReg(truncateLSB(time_counter));
-    Reg#(Word)      minstreth   = readOnlyReg(truncateLSB(instructions_retired_counter));
+    Reg#(Word)      mcycleh     = readOnlyReg(truncateLSB(cycleCounter));
+    Reg#(Word)      mtimeh      = readOnlyReg(truncateLSB(timeCounter));
+    Reg#(Word)      minstreth   = readOnlyReg(truncateLSB(instructionsRetiredCounter));
+
+    method Word64 cycle_counter;
+        return cycleCounter;
+    endmethod
 
     method Action increment_cycle_counter;
-        cycle_counter <= cycle_counter + 1;
+        cycleCounter <= cycleCounter + 1;
     endmethod
 
     method Action increment_instructions_retired_counter;
-        instructions_retired_counter <= instructions_retired_counter + 1;
+        instructionsRetiredCounter <= instructionsRetiredCounter + 1;
     endmethod
 endmodule
