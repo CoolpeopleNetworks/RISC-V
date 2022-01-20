@@ -81,16 +81,6 @@ module mkInstructionDecoder#(
     endfunction
 
     //
-    // predict_branch
-    //
-    function Bool predict_branch(Word currentProgramCounter, Word targetAddress);
-        // Simple static branch predictor
-        // Predicted taken if target address is smaller than the program counter
-        // (backward branch), otherwise (forward branch) predicted not taken.
-        return (targetAddress < currentProgramCounter ? True : False);
-    endfunction
-
-    //
     // decode_auipc
     //
     function Maybe#(DecodedInstruction) decode_auipc(Word programCounter, UtypeInstruction uTypeInstruction);
@@ -157,7 +147,6 @@ module mkInstructionDecoder#(
                 // Branch prediction (the signed offset is relative to rs1 but since
                 // that's not available, we ignore it)
                 let targetAddress = programCounter + signExtend(offset);
-    //            let isTaken = predict_branch(programCounter, targetAddress);
                 let isTaken = case(branchOperator)
                     BEQ: (rs1 == rs2 ? True : False);
                     BNE: (rs1 != rs2 ? True : False);
@@ -434,7 +423,7 @@ module mkInstructionDecoder#(
     //
     function Maybe#(DecodedInstruction) decode_system(Word programCounter, ItypeInstruction iTypeInstruction);
         return case({iTypeInstruction.immediate, iTypeInstruction.rs1, iTypeInstruction.func3, iTypeInstruction.rd})
-            25'b000000000000_00000_000_00000: begin
+            25'b0000000_00000_00000_000_00000: begin
                 tagged Valid DecodedInstruction{
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
@@ -442,11 +431,12 @@ module mkInstructionDecoder#(
                     rs1: ?,
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
+                        rd: ?,
                         operator: ECALL
                     }
                 };
             end
-            25'b000000000001_00000_000_00000: begin
+            25'b0000000_00001_00000_000_00000: begin
                 tagged Valid DecodedInstruction{
                     programCounter: programCounter,
                     nextProgramCounter: programCounter + 4,
@@ -454,7 +444,47 @@ module mkInstructionDecoder#(
                     rs1: ?,
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
+                        rd: ?,
                         operator: EBREAK
+                    }
+                };
+            end
+            25'b0001000_00010_00000_000_00000: begin
+                tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: programCounter + 4,
+                    instructionType: SYSTEM,
+                    rs1: ?,
+                    rs2: ?,
+                    specific: tagged SystemInstruction SystemInstruction{
+                        rd: ?,
+                        operator: SRET
+                    }
+                };
+            end
+            25'b0011000_00010_00000_000_00000: begin
+                tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: programCounter + 4,
+                    instructionType: SYSTEM,
+                    rs1: ?,
+                    rs2: ?,
+                    specific: tagged SystemInstruction SystemInstruction{
+                        rd: ?,
+                        operator: MRET
+                    }
+                };
+            end
+            25'b0001000_00101_00000_000_00000: begin
+                tagged Valid DecodedInstruction{
+                    programCounter: programCounter,
+                    nextProgramCounter: programCounter + 4,
+                    instructionType: SYSTEM,
+                    rs1: ?,
+                    rs2: ?,
+                    specific: tagged SystemInstruction SystemInstruction{
+                        rd: ?,
+                        operator: WFI
                     }
                 };
             end

@@ -2,7 +2,9 @@ import RVTypes::*;
 
 typedef enum {
     ADD,
-    AND, 
+    AND,
+    DIV, 
+    MUL,
     OR,
     SLT,
     SLTU,

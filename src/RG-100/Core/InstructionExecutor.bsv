@@ -3,6 +3,7 @@ import RVOperandForward::*;
 import RVTypes::*;
 import RVInstruction::*;
 import RVALU::*;
+import RVExceptions::*;
 
 import Instruction::*;
 
@@ -202,7 +203,10 @@ module mkInstructionExecutor(InstructionExecutor);
             decodedInstruction: decodedInstruction,
             writeBack: tagged Invalid,
             loadStore: tagged Invalid,
-            exception: tagged Invalid
+            exception: tagged Valid Exception {
+                exceptionType: ILLEGAL_INSTRUCTION,
+                targetAddress: decodedInstruction.programCounter
+            }
         };
     endfunction
 

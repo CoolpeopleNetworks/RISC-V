@@ -1,5 +1,6 @@
 import RVInstruction::*;
 import RVTypes::*;
+import RVExceptions::*;
 
 //
 // DecodedInstruction
@@ -52,10 +53,6 @@ typedef struct {
     Word effectiveAddress;
     Word storeValue;
 } LoadStore deriving(Bits, Eq);
-
-typedef enum {
-    MISALIGNED_INSTRUCTION
-} ExceptionType deriving(Bits, Eq);
 
 typedef struct {
     ExceptionType exceptionType;

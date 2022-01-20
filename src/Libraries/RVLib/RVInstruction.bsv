@@ -161,10 +161,14 @@ typedef struct {
 typedef enum {
     ECALL,
     EBREAK,
+    SRET,
+    MRET,
+    WFI,
     UNSUPPORTED_SYSTEM_OPERATOR
 } SystemOperator deriving(Bits, Eq);
 
 typedef struct {
+    RegisterIndex rd;
     SystemOperator operator;
 } SystemInstruction deriving(Bits, Eq);
 
