@@ -1,6 +1,59 @@
 import RVTypes::*;
 import RVALU::*;
 
+typedef enum {
+    LOAD,
+    STORE,
+    COPY_IMMEDIATE, // copies immediate value to register rd (Used by LUI and AUIPC).
+    BRANCH,
+    JUMP,
+    ALU,
+    SYSTEM,
+    UNSUPPORTED_OPCODE
+} RVOpcode deriving(Bits, Eq, FShow);
+
+typedef enum {
+    BEQ  = 3'b000,
+    BNE  = 3'b001,
+    UNSUPPORTED_BRANCH_OPERATOR_010 = 3'b010,
+    UNSUPPORTED_BRANCH_OPERATOR_011 = 3'b011,
+    BLT  = 3'b100,
+    BGE  = 3'b101,
+    BLTU = 3'b110,
+    BGEU = 3'b111
+} RVBranchOperator deriving(Bits, Eq, FShow);
+
+typedef enum {
+    LB  = 3'b000,
+    LH  = 3'b001,
+    LW  = 3'b010,
+    UNSUPPORTED_LOAD_OPERATOR_011 = 3'b011,
+    LBU = 3'b100,
+    LHU = 3'b101,
+    UNSUPPORTED_LOAD_OPERATOR_110 = 3'b110,
+    UNSUPPORTED_LOAD_OPERATOR_111 = 3'b111
+} RVLoadOperator deriving(Bits, Eq, FShow);
+
+typedef enum {
+    SB  = 3'b000,
+    SH  = 3'b001,
+    SW  = 3'b010,
+    UNSUPPORTED_STORE_OPERATOR_011 = 3'b011,
+    UNSUPPORTED_STORE_OPERATOR_100 = 3'b100,
+    UNSUPPORTED_STORE_OPERATOR_101 = 3'b101,
+    UNSUPPORTED_STORE_OPERATOR_110 = 3'b110,
+    UNSUPPORTED_STORE_OPERATOR_111 = 3'b111
+} RVStoreOperator deriving(Bits, Eq, FShow);
+
+typedef enum {
+    ECALL,
+    EBREAK,
+    SRET,
+    MRET,
+    WFI,
+    UNSUPPORTED_SYSTEM_OPERATOR
+} RVSystemOperator deriving(Bits, Eq, FShow);
+
 //
 // EncodedInstructions
 //
@@ -68,7 +121,7 @@ typedef struct {
 //
 typedef struct {
     RegisterIndex rd;
-    ALUOperator  operator;
+    RVALUOperator  operator;
     Bit#(12) immediate;
 } ALUInstruction deriving(Bits, Eq);
 
@@ -83,18 +136,8 @@ typedef struct {
 //
 // BranchInstruction
 //
-typedef enum {
-    BEQ,
-    BNE,
-    BLT,
-    BLTU,
-    BGE,
-    BGEU,
-    UNSUPPORTED_BRANCH_OPERATOR
-} BranchOperator deriving(Bits, Eq);
-
 typedef struct {
-    BranchOperator operator;
+    RVBranchOperator operator;
     Bit#(13) offset;
 } BranchInstruction deriving(Bits, Eq);
 
@@ -117,19 +160,10 @@ typedef struct {
 //
 // LoadInstruction
 //
-typedef enum {
-    LB,
-    LH,
-    LW,
-    LBU,
-    LHU,
-    UNSUPPORTED_LOAD_OPERATOR
-} LoadOperator deriving(Bits, Eq);
-
 typedef struct {
     RegisterIndex rd;
     Bit#(12) offset;
-    LoadOperator operator;
+    RVLoadOperator operator;
 } LoadInstruction deriving(Bits, Eq);
 
 //
@@ -143,33 +177,17 @@ typedef struct {
 //
 // StoreInstruction
 //
-typedef enum {
-    SB,
-    SH,
-    SW,
-    UNSUPPORTED_STORE_OPERATOR
-} StoreOperator deriving(Bits, Eq);
-
 typedef struct {
     Bit#(12) offset;
-    StoreOperator operator;
+    RVStoreOperator operator;
 } StoreInstruction deriving(Bits, Eq);
 
 //
 // SystemInstruction
 //
-typedef enum {
-    ECALL,
-    EBREAK,
-    SRET,
-    MRET,
-    WFI,
-    UNSUPPORTED_SYSTEM_OPERATOR
-} SystemOperator deriving(Bits, Eq);
-
 typedef struct {
     RegisterIndex rd;
-    SystemOperator operator;
+    RVSystemOperator operator;
 } SystemInstruction deriving(Bits, Eq);
 
 //

@@ -324,7 +324,7 @@ module mkInstructionDecoder#(
                 rs2: fromMaybe(?, rs2Result),
                 specific: tagged ALUInstruction ALUInstruction{
                     rd: rTypeInstruction.rd,
-                    operator: aluOperator,
+                    operator: pack(aluOperator),
                     immediate: ?
                 }
             };
@@ -363,7 +363,7 @@ module mkInstructionDecoder#(
                 rs2: ?,
                 specific: tagged ALUInstruction ALUInstruction{
                     rd: iTypeInstruction.rd,
-                    operator: aluOperator,
+                    operator: pack(aluOperator),
                     immediate: immediate
                 }
             };

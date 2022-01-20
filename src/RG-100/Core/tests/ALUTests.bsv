@@ -103,7 +103,7 @@ module mkALUTests(Empty);
             end
         endcase
 
-        let actual = alu.execute(operand1, operand2, operator);
+        let actual = alu.execute(operand1, operand2, pack(operator));
         if (actual != expected) begin 
             Int#(32) signedExpected = unpack(pack(expected));
             Int#(32) signedActual = unpack(pack(actual));

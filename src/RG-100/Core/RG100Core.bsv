@@ -1,6 +1,7 @@
 import RVCSRFile::*;
 import RVOperandForward::*;
 import RVRegisterFile::*;
+import RVDecoder::*;
 import RVTypes::*;
 import RVInstruction::*;
 
@@ -91,7 +92,7 @@ module mkRG100Core#(
     //
     Reg#(ProgramCounter) fetchProgramCounter <- mkReg(initialProgramCounter);
     Reg#(PipelineEpoch) fetchEpoch <- mkReg(0);
-    RWire#(ProgramCounter) programCounterForward <- mkRWire();
+    RWire#(ProgramCounter) programCounterRedirect <- mkRWire();
 
     // This FIFO holds the program counter value for the instruction that's being
     // fetched.
@@ -100,12 +101,12 @@ module mkRG100Core#(
     (* fire_when_enabled *)
     rule fetchInstruction;
         // Get the current program counter from the 'fetchProgramCounter' register, if the 
-        // program counter redirect has an item, move that into the program counter instead and
+        // program counter redirect has a value, move that into the program counter and
         // increment the epoch.
         let currentEpoch = fetchEpoch;
         let programCounter = fetchProgramCounter;
-        if (programCounterForward.wget() matches tagged Valid .programCounterOverride) begin
-            programCounter = programCounterOverride;
+        if (programCounterRedirect.wget() matches tagged Valid .programCounterRedirect) begin
+            programCounter = programCounterRedirect;
 
             $display("[%08d:%08x:fetch] redirected PC = $%08x", csrFile.cycle_counter, programCounter, programCounter);
             currentEpoch = fetchEpoch + 1;
@@ -160,7 +161,7 @@ module mkRG100Core#(
                 // If the decoded instruction modified the next PC from what's expected,
                 // communicate that to the fetch stage so it fetches the correct instruction.
                 if (decodedInstruction.nextProgramCounter != programCounter + 4)
-                    programCounterForward.wset(decodedInstruction.nextProgramCounter);
+                    programCounterRedirect.wset(decodedInstruction.nextProgramCounter);
 
                 // Send the decode result to the output queue.
                 decodedInstructionQueue.enq(DecodeInfo {
