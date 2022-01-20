@@ -3,7 +3,6 @@ typedef 64 XLEN;
 `elsif RV128
 typedef 128 XLEN
 `else
-`define RV32
 typedef 32 XLEN;
 `endif
 

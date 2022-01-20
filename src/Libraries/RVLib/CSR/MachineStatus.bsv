@@ -67,7 +67,7 @@ typedef struct {
     Bool machineModeMemoryFetchesBigEndian;                 // MBE
 
 `ifdef RV32
-    Bit#(26) _reserved6
+    Bit#(26) _reserved6;
 `elsif RV64
     Bit#(25) _reserved7;
     Bool stateBitsAvailable;                                // SD (64bit mode)

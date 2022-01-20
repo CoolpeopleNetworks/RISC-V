@@ -7,6 +7,7 @@ typedef enum {
     COPY_IMMEDIATE, // copies immediate value to register rd (Used by LUI and AUIPC).
     BRANCH,
     JUMP,
+    JUMP_INDIRECT,
     ALU,
     SYSTEM,
     UNSUPPORTED_OPCODE
@@ -27,10 +28,18 @@ typedef enum {
     LB  = 3'b000,
     LH  = 3'b001,
     LW  = 3'b010,
+`ifdef RV32
     UNSUPPORTED_LOAD_OPERATOR_011 = 3'b011,
+`elsif RV64
+    LD = 3'b011,
+`endif
     LBU = 3'b100,
     LHU = 3'b101,
+`ifdef RV32
     UNSUPPORTED_LOAD_OPERATOR_110 = 3'b110,
+`elsif RV64
+    LWU = 3'b110,
+`endif
     UNSUPPORTED_LOAD_OPERATOR_111 = 3'b111
 } RVLoadOperator deriving(Bits, Eq, FShow);
 
@@ -38,7 +47,11 @@ typedef enum {
     SB  = 3'b000,
     SH  = 3'b001,
     SW  = 3'b010,
+`ifdef RV32
     UNSUPPORTED_STORE_OPERATOR_011 = 3'b011,
+`elsif RV64
+    SD = 3'b011,
+`endif
     UNSUPPORTED_STORE_OPERATOR_100 = 3'b100,
     UNSUPPORTED_STORE_OPERATOR_101 = 3'b101,
     UNSUPPORTED_STORE_OPERATOR_110 = 3'b110,
@@ -52,7 +65,9 @@ typedef enum {
     MRET,
     WFI,
     UNSUPPORTED_SYSTEM_OPERATOR
-} RVSystemOperator deriving(Bits, Eq, FShow);
+} RVSystemOperators deriving(Bits, Eq, FShow);
+
+typedef Bit#(3) RVSystemOperator;
 
 //
 // EncodedInstructions

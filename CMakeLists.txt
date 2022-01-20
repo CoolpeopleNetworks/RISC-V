@@ -7,4 +7,5 @@ include(BSV)
 
 project(RISC-V)
 
+set(BSC_DEFINES -D RV32)
 add_subdirectory(src)

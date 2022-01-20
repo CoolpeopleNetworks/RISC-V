@@ -8,6 +8,7 @@ typedef struct {
     RVALUOperator aluOperator;
     RVLoadOperator loadOperator;
     RVBranchOperator branchOperator;
+    RVSystemOperator systemOperator;
     ProgramCounter predictedBranchTarget;
     RegisterIndex rd;
     RegisterIndex rs1;
@@ -21,15 +22,26 @@ endinterface
 
 (* synthesize *)
 module mkRVDecoder(RVDecoder);
-
     function Bool isValidLoadInstruction(Bit#(3) func3);
+`ifdef RV32
         return (func3 == pack(UNSUPPORTED_LOAD_OPERATOR_011) ||
                 func3 == pack(UNSUPPORTED_LOAD_OPERATOR_110) ||
                 func3 == pack(UNSUPPORTED_LOAD_OPERATOR_111) ? False : True);
+`elsif RV64
+        return (func == pack(UNSUPPORTED_LOAD_OPERATOR_111) ? False : True);
+`else
+        return False;
+`endif
     endfunction
 
     function Bool isValidStoreInstruction(Bit#(3) func3);
-        return (func3 < 2 ? True : False);
+`ifdef RV32
+        return (func3 < 3 ? True : False);
+`elsif RV64
+        return (func3 < 4 ? True : False);
+`else
+    return False;
+`endif
     endfunction
 
     function Bool isValidBranchInstruction(Bit#(3) func3);
@@ -53,6 +65,7 @@ module mkRVDecoder(RVDecoder);
             aluOperator: unpack({func7, func3}),
             loadOperator: unpack(func3),
             branchOperator: ?,
+            systemOperator: ?,
             predictedBranchTarget: ?,
             rd: rd,
             rs1: rs1,
@@ -135,9 +148,71 @@ module mkRVDecoder(RVDecoder);
                         (branchDirectionNegative ? branchTarget : (programCounter + 4));
                 end
             end
+            //
+            // JALR
+            //
+            7'b1100111: begin
+                decodedInstruction.opcode = JUMP_INDIRECT;
+                decodedInstruction.immediate = tagged Valid signExtend(instruction[31:20]);
+            end
+            //
+            // JAL
+            //
+            7'b1101111: begin
+                decodedInstruction.opcode = JUMP;
+                decodedInstruction.immediate = tagged Valid signExtend({
+                    instruction[31],    // 1 bit
+                    instruction[19:12], // 8 bits
+                    instruction[20],    // 1 bit
+                    instruction[30:21], // 10 bits
+                    1'b0                // 1 bit
+                });
+            end
+            //
+            // SYSTEM
+            //
+            7'b1110011: begin
+                let systemOperator = instruction[31:7];
+                case(systemOperator)
+                    //
+                    // ECALL
+                    //
+                    25'b0000000_00000_00000_000_00000: begin
+                        decodedInstruction.opcode = SYSTEM;
+                        decodedInstruction.systemOperator = pack(ECALL);
+                    end
+                    //
+                    // EBREAK
+                    //
+                    25'b0000000_00001_00000_000_00000: begin
+                        decodedInstruction.opcode = SYSTEM;
+                        decodedInstruction.systemOperator = pack(EBREAK);
+                    end
+                    //
+                    // SRET
+                    //
+                    25'b0001000_00010_00000_000_00000: begin
+                        decodedInstruction.opcode = SYSTEM;
+                        decodedInstruction.systemOperator = pack(SRET);
+                    end
+                    //
+                    // MRET
+                    //
+                    25'b0011000_00010_00000_000_00000: begin
+                        decodedInstruction.opcode = SYSTEM;
+                        decodedInstruction.systemOperator = pack(MRET);
+                    end
+                    //
+                    // WFI
+                    //
+                    25'b0001000_00101_00000_000_00000: begin
+                        decodedInstruction.opcode = SYSTEM;
+                        decodedInstruction.systemOperator = pack(WFI);
+                    end
+                endcase
+            end
         endcase
 
         return decodedInstruction;
     endmethod
-
 endmodule
