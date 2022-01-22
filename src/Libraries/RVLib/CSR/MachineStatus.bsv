@@ -82,11 +82,11 @@ module mkMachineStatusRegister(MachineStatus);
     endmethod
 `elsif RV32
     method Word mstatus();
-        return pack(sr[0:31]);
+        return pack(sr)[31:0];
     endmethod
 
     method Word mstatush();
-        return pack(sr[32:63]);
+        return pack(sr)[63:32];
     endmethod
 `endif
 

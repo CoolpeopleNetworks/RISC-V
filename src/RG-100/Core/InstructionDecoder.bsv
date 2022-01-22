@@ -129,10 +129,10 @@ module mkInstructionDecoder#(
                 3'b101: BGE;
                 3'b110: BLTU;
                 3'b111: BGEU;
-                default: UNSUPPORTED_BRANCH_OPERATOR;
+                default: UNSUPPORTED_BRANCH_OPERATOR_010;
             endcase;
 
-            if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR) begin
+            if (branchOperator == UNSUPPORTED_BRANCH_OPERATOR_010) begin
                 return tagged Valid DecodedInstruction{
                     programCounter: programCounter,
                     nextProgramCounter: programCounter,
@@ -236,12 +236,12 @@ module mkInstructionDecoder#(
             3'b010: LW;
             3'b100: LBU;
             3'b101: LHU;
-            default: UNSUPPORTED_LOAD_OPERATOR;
+            default: UNSUPPORTED_LOAD_OPERATOR_111;
         endcase;
 
         let nextProgramCounter = programCounter + 4;
 
-        if (loadOperator == UNSUPPORTED_LOAD_OPERATOR) begin
+        if (loadOperator == UNSUPPORTED_LOAD_OPERATOR_111) begin
             return tagged Valid DecodedInstruction{
                 programCounter: programCounter,
                 nextProgramCounter: nextProgramCounter,
@@ -378,10 +378,10 @@ module mkInstructionDecoder#(
             3'b000: SB;
             3'b001: SH;
             3'b010: SW;
-            default: UNSUPPORTED_STORE_OPERATOR;
+            default: UNSUPPORTED_STORE_OPERATOR_111;
         endcase;
 
-        if (storeOperator == UNSUPPORTED_STORE_OPERATOR) begin
+        if (storeOperator == UNSUPPORTED_STORE_OPERATOR_111) begin
             return tagged Valid DecodedInstruction{
                 programCounter: programCounter,
                 nextProgramCounter: programCounter + 4,
@@ -432,7 +432,7 @@ module mkInstructionDecoder#(
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         rd: ?,
-                        operator: ECALL
+                        operator: pack(ECALL)
                     }
                 };
             end
@@ -445,7 +445,7 @@ module mkInstructionDecoder#(
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         rd: ?,
-                        operator: EBREAK
+                        operator: pack(EBREAK)
                     }
                 };
             end
@@ -458,7 +458,7 @@ module mkInstructionDecoder#(
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         rd: ?,
-                        operator: SRET
+                        operator: pack(SRET)
                     }
                 };
             end
@@ -471,7 +471,7 @@ module mkInstructionDecoder#(
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         rd: ?,
-                        operator: MRET
+                        operator: pack(MRET)
                     }
                 };
             end
@@ -484,7 +484,7 @@ module mkInstructionDecoder#(
                     rs2: ?,
                     specific: tagged SystemInstruction SystemInstruction{
                         rd: ?,
-                        operator: WFI
+                        operator: pack(WFI)
                     }
                 };
             end

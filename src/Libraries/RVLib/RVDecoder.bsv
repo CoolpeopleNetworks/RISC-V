@@ -11,8 +11,8 @@ typedef struct {
     RVSystemOperator systemOperator;
     ProgramCounter predictedBranchTarget;
     RegisterIndex rd;
-    RegisterIndex rs1;
-    RegisterIndex rs2;
+    Maybe#(RegisterIndex) rs1;
+    Maybe#(RegisterIndex) rs2;
     Maybe#(Word) immediate;
 } RVDecodedInstruction deriving(Bits, Eq, FShow);
 
@@ -68,8 +68,8 @@ module mkRVDecoder(RVDecoder);
             systemOperator: ?,
             predictedBranchTarget: ?,
             rd: rd,
-            rs1: rs1,
-            rs2: rs2,
+            rs1: tagged Invalid,
+            rs2: tagged Invalid,
             immediate: tagged Invalid
         };
 
@@ -80,6 +80,7 @@ module mkRVDecoder(RVDecoder);
             7'b0000011: begin
                 if (isValidLoadInstruction(func3)) begin
                     decodedInstruction.opcode = LOAD;
+                    decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.immediate = tagged Valid immediate31_20;
                 end
             end
@@ -91,10 +92,12 @@ module mkRVDecoder(RVDecoder);
                 if (func3[1:0] == 2'b01) begin
                     if (func7 == 7'b0000000 || func7 == 7'b0100000) begin
                         decodedInstruction.opcode = ALU;
+                        decodedInstruction.rs1 = tagged Valid rs1;
                         decodedInstruction.immediate = tagged Valid extend(shamt);
                     end
                 end else begin
                     decodedInstruction.opcode = ALU;
+                    decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.immediate = tagged Valid immediate31_20;
                 end
             end
@@ -111,6 +114,8 @@ module mkRVDecoder(RVDecoder);
             7'b0100011: begin
                 if (isValidStoreInstruction(func3)) begin
                     decodedInstruction.opcode = STORE;
+                    decodedInstruction.rs1 = tagged Valid rs1;
+                    decodedInstruction.rs2 = tagged Valid rs2;
                     decodedInstruction.immediate = tagged Valid (signExtend({instruction[31:25], instruction[11:7]}));
                 end
             end
@@ -120,6 +125,8 @@ module mkRVDecoder(RVDecoder);
             7'b0110011: begin
                 if (func7 == 7'b0000000 || (func7 == 7'b0100000 && (func3 == 3'b000 || func3 == 3'b101)))   
                     decodedInstruction.opcode = ALU;
+                    decodedInstruction.rs1 = tagged Valid rs1;
+                    decodedInstruction.rs2 = tagged Valid rs2;
             end
             //
             // LUI
@@ -143,6 +150,8 @@ module mkRVDecoder(RVDecoder);
                     let branchTarget = programCounter + immediate;
                     Bool branchDirectionNegative = (msb(immediate) == 1'b1 ? True : False);
                     decodedInstruction.opcode = BRANCH;
+                    decodedInstruction.rs1 = tagged Valid rs1;
+                    decodedInstruction.rs2 = tagged Valid rs2;
                     decodedInstruction.immediate = tagged Valid immediate;
                     decodedInstruction.predictedBranchTarget = 
                         (branchDirectionNegative ? branchTarget : (programCounter + 4));
@@ -153,6 +162,7 @@ module mkRVDecoder(RVDecoder);
             //
             7'b1100111: begin
                 decodedInstruction.opcode = JUMP_INDIRECT;
+                decodedInstruction.rs1 = tagged Valid rs1;
                 decodedInstruction.immediate = tagged Valid signExtend(instruction[31:20]);
             end
             //

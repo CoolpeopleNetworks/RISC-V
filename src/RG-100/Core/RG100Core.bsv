@@ -6,6 +6,7 @@ import RVTypes::*;
 import RVInstruction::*;
 
 import Instruction::*;
+import Scoreboard::*;
 
 // Core stages
 import InstructionDecoder::*;
@@ -75,6 +76,11 @@ module mkRG100Core#(
     // Register file
     //
     RVRegisterFile registerFile <- mkRVRegisterFile();
+
+    //
+    // Scoreboard
+    //
+    Scoreboard#(4) scoreBoard <- mkScoreboard;
 
     //
     // Operand forwarding between stages
@@ -192,11 +198,11 @@ module mkRG100Core#(
             // Special case handling for specific SYSTEM instructions
             if (decodedInstruction.instructionType == SYSTEM) begin
                 case(decodedInstruction.specific.SystemInstruction.operator)
-                    ECALL: begin
+                    pack(ECALL): begin
                         $display("[%08d:%08x:execute] ECALL instruction encountered - HALTED", csrFile.cycle_counter, decodedInstruction.programCounter);
                         $finish();
                     end
-                    EBREAK: begin
+                    pack(EBREAK): begin
                         $display("[%08d:%08x:execute] EBREAK instruction encountered - HALTED", csrFile.cycle_counter, decodedInstruction.programCounter);
                         $finish();
                     end
