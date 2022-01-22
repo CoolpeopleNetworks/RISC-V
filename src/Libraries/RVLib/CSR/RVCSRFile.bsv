@@ -51,7 +51,7 @@ interface RVCSRFile;
     method ActionValue#(Bool) write(PrivilegeLevel curPriv, CSRIndex index, Word value);
 
     // Exception handling
-    method Action beginException(PrivilegeLevel privilegeLevel, ExceptionType exceptionType);
+    method Action beginException(PrivilegeLevel privilegeLevel, RVExceptionCause exceptionCause);
 
     // Special purpose
     method Word64 cycle_counter;
@@ -104,7 +104,7 @@ module mkRVCSRFile(RVCSRFile);
         end
     endmethod
 
-    method Action beginException(PrivilegeLevel privilegeLevel, ExceptionType exceptionType);
+    method Action beginException(PrivilegeLevel privilegeLevel, RVExceptionCause exceptionCause);
     endmethod
 
     method Word64 cycle_counter;

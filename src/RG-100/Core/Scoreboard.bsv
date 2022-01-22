@@ -9,7 +9,7 @@ interface Scoreboard#(numeric type size);
 endinterface
 
 module mkScoreboard(Scoreboard#(size));
-    Reg#(Maybe#(RegisterIndex)) entries[valueof(size)] <- mkCReg(valueof(size), tagged Invalid);
+    Vector#(size, Array#(Reg#(Maybe#(RegisterIndex)))) entries <- replicateM(mkCReg(2, Invalid));
     Reg#(Bit#(TAdd#(TLog#(size),1))) iidx <- mkReg(0);
     Reg#(Bit#(TAdd#(TLog#(size),1))) ridx <- mkReg(0);
     Reg#(Bit#(TAdd#(TLog#(size),1))) count[3] <- mkCReg(3, 0);
@@ -20,7 +20,7 @@ module mkScoreboard(Scoreboard#(size));
     endfunction
 
     method Action insert(Maybe#(RegisterIndex) r) if (count[1] != fromInteger(valueOf(size)));
-        entries[iidx] <= r;
+        entries[iidx][1]._write(r);
         iidx <= iidx == fromInteger(valueOf(size)) - 1 ? 0 : iidx + 1;
         count[1] <= count[1] + 1;
     endmethod
@@ -28,12 +28,12 @@ module mkScoreboard(Scoreboard#(size));
     method Bool search(Maybe#(RegisterIndex) s1, Maybe#(RegisterIndex) s2);
         Bit#(size) r = 0;
         for (Integer i = 0; i < valueOf(size); i = i + 1)
-            r[i] = pack(dataHazard(s1, s2, entries[i]));
+            r[i] = pack(dataHazard(s1, s2, entries[i][1]._read()));
         return r != 0;
     endmethod
 
     method Action remove if (count[0] != 0);
-        entries[ridx] <= tagged Invalid;
+        entries[ridx][0]._write(tagged Invalid);
         ridx <= ridx == fromInteger(valueOf(size)) - 1 ? 0 : ridx + 1;
         count[0] <= count[0] - 1;
     endmethod

@@ -55,7 +55,7 @@ typedef struct {
 } LoadStore deriving(Bits, Eq);
 
 typedef struct {
-    ExceptionType exceptionType;
+    RVExceptionCause exceptionCause;
     Word targetAddress;
 } Exception deriving(Bits, Eq);
 

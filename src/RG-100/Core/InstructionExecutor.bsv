@@ -204,7 +204,7 @@ module mkInstructionExecutor(InstructionExecutor);
             writeBack: tagged Invalid,
             loadStore: tagged Invalid,
             exception: tagged Valid Exception {
-                exceptionType: ILLEGAL_INSTRUCTION,
+                exceptionCause: ILLEGAL_INSTRUCTION,
                 targetAddress: decodedInstruction.programCounter
             }
         };

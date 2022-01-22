@@ -1,6 +1,7 @@
 import RVCSRFile::*;
-import RVOperandForward::*;
 import RVRegisterFile::*;
+import RVExecutor::*;
+import RVExceptions::*;
 import RVDecoder::*;
 import RVTypes::*;
 import RVInstruction::*;
@@ -26,22 +27,10 @@ export RG100Core (..), mkRG100Core;
 interface RG100Core;
 endinterface
 
-typedef Word PipelineEpoch;
-
 typedef struct {
     ProgramCounter programCounter;
     PipelineEpoch epoch;
 } FetchInfo deriving(Bits, Eq);
-
-typedef struct {
-    DecodedInstruction decodedInstruction;
-    PipelineEpoch epoch;
-} DecodeInfo deriving(Bits, Eq);
-
-typedef struct {
-    ExecutedInstruction executedInstruction;
-    PipelineEpoch epoch;
-} ExecutionInfo deriving(Bits, Eq);
 
 //
 // Pipeline Stages
@@ -80,13 +69,7 @@ module mkRG100Core#(
     //
     // Scoreboard
     //
-    Scoreboard#(4) scoreBoard <- mkScoreboard;
-
-    //
-    // Operand forwarding between stages
-    //
-    RWire#(RVOperandForward) executionStageForward <- mkRWire();
-    RWire#(RVOperandForward) memoryAccessStageForward <- mkRWire();
+    Scoreboard#(4) scoreboard <- mkScoreboard;
 
     //
     // Current privilege level
@@ -138,42 +121,39 @@ module mkRG100Core#(
     //
     // Stage 2 - Instruction Decode
     //
-    InstructionDecoder instructionDecoder <- mkInstructionDecoder(registerFile, executionStageForward, memoryAccessStageForward);
-    Reg#(PipelineEpoch) decodeEpoch <- mkReg(0);
-    FIFO#(DecodeInfo) decodedInstructionQueue <- mkFIFO1();
+    RVDecoder decoder <- mkRVDecoder;
+    Reg#(PipelineEpoch) decoderEpoch <- mkReg(0);
+    FIFO#(RVDecodedInstruction) decodedInstructionQueue <- mkFIFO1();
 
     (* fire_when_enabled *)
     rule decodeInstruction;
         let encodedInstruction = instructionMemory.first;
-        if (fetchInfoQueue.first().epoch < decodeEpoch) begin
+        if (fetchInfoQueue.first().epoch < decoderEpoch) begin
             // Epoch mismatch, ignore the decode request.
             instructionMemory.deq();
             fetchInfoQueue.deq();
         end else begin
             let programCounter = fetchInfoQueue.first.programCounter;
-            $display("[%08d:%08x:decode] decoding instruction: %08x", csrFile.cycle_counter, programCounter, encodedInstruction);
-
-            // Attempt to decode the instruction.  If register reads are blocked waiting
-            // for data (memory reads), this will return tagged invalid (causing this stage to stall)
-            let decodeResult = instructionDecoder.decode(programCounter, encodedInstruction);
-            if (isValid(decodeResult)) begin
+            let decodedInstruction = decoder.decode(programCounter, encodedInstruction);
+            let stallWaitingForOperands = scoreboard.search(decodedInstruction.rs1, decodedInstruction.rs2);
+            if (stallWaitingForOperands) begin
+                $display("[%08d:%08x:decode] stall waiting for operands", csrFile.cycle_counter, programCounter);
+            end else begin
                 instructionMemory.deq();
                 fetchInfoQueue.deq();
 
-                let decodedInstruction = fromMaybe(?, decodeResult);
+                // Read the source operand registers since the scoreboard indicates it's available.
+                if (isValid(decodedInstruction.rs1))
+                    decodedInstruction.rs1Value = registerFile.read1(fromMaybe(?, decodedInstruction.rs1));
 
-                $display("[%08d:%08x:decode] next PC: %08x", csrFile.cycle_counter, programCounter, decodedInstruction.nextProgramCounter);
+                if (isValid(decodedInstruction.rs2))
+                    decodedInstruction.rs2Value = registerFile.read2(fromMaybe(?, decodedInstruction.rs2));
 
-                // If the decoded instruction modified the next PC from what's expected,
-                // communicate that to the fetch stage so it fetches the correct instruction.
-                if (decodedInstruction.nextProgramCounter != programCounter + 4)
-                    programCounterRedirect.wset(decodedInstruction.nextProgramCounter);
+                $display("[%08d:%08x:decode] decode complete", csrFile.cycle_counter, programCounter, fshow(decodedInstruction));
 
                 // Send the decode result to the output queue.
-                decodedInstructionQueue.enq(DecodeInfo {
-                    decodedInstruction: decodedInstruction,
-                    epoch: decodeEpoch
-                });
+                decodedInstructionQueue.enq(decodedInstruction);
+                scoreboard.insert(decodedInstruction.rd);
             end
         end
     endrule
@@ -181,8 +161,8 @@ module mkRG100Core#(
     //
     // Stage 3 - Instruction execution
     //
-    InstructionExecutor instructionExecutor <- mkInstructionExecutor();
-    FIFO#(ExecutionInfo) executedInstructionQueue <- mkFIFO1();
+    RVExecutor instructionExecutor <- mkRVExecutor();
+    FIFO#(RVExecutedInstruction) executedInstructionQueue <- mkFIFO1();
     Reg#(PipelineEpoch) executionEpoch <- mkReg(0);
 
     (* fire_when_enabled *)
@@ -190,14 +170,14 @@ module mkRG100Core#(
         if (decodedInstructionQueue.first().epoch < executionEpoch) begin
             decodedInstructionQueue.deq();
         end else begin
-            let decodedInstruction = decodedInstructionQueue.first().decodedInstruction;
+            let decodedInstruction = decodedInstructionQueue.first();
             decodedInstructionQueue.deq();
 
             $display("[%08d:%08x:execute] executing instruction", csrFile.cycle_counter, decodedInstruction.programCounter);
 
             // Special case handling for specific SYSTEM instructions
-            if (decodedInstruction.instructionType == SYSTEM) begin
-                case(decodedInstruction.specific.SystemInstruction.operator)
+            if (decodedInstruction.opcode == SYSTEM) begin
+                case(decodedInstruction.systemOperator)
                     pack(ECALL): begin
                         $display("[%08d:%08x:execute] ECALL instruction encountered - HALTED", csrFile.cycle_counter, decodedInstruction.programCounter);
                         $finish();
@@ -216,24 +196,18 @@ module mkRG100Core#(
             // stages using operand forwarding.
             if (executedInstruction.writeBack matches tagged Valid .wb) begin
                 $display("[%08d:%08x:execute] complete (WB: x%d = %08x)", csrFile.cycle_counter, decodedInstruction.programCounter, wb.rd, wb.value);
-                executionStageForward.wset(RVOperandForward{ 
-                    rd: wb.rd,
-                    value: tagged Valid wb.value
-                });
+                scoreboard.remove;
             end else begin
                 // Note: any exceptions are passed through until handled inside the writeback
                 // stage.
                 if (executedInstruction.exception matches tagged Valid .exception) begin
-                    $display("[%08d:%08x:execute] EXCEPTION: %d", csrFile.cycle_counter, decodedInstruction.programCounter, exception.exceptionType);
+                    $display("[%08d:%08x:execute] EXCEPTION:", csrFile.cycle_counter, decodedInstruction.programCounter, fshow(exception.cause));
                 end else begin
                     $display("[%08d:%08x:execute] complete", csrFile.cycle_counter, decodedInstruction.programCounter);
                 end
             end
 
-            executedInstructionQueue.enq(ExecutionInfo {
-                executedInstruction: executedInstruction,
-                epoch: executionEpoch
-            });
+            executedInstructionQueue.enq(executedInstruction);
         end
     endrule
 
@@ -241,7 +215,7 @@ module mkRG100Core#(
     // Stage 4 - Memory access
     //
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
-    FIFO#(ExecutionInfo) memoryAccessCompletedQueue <- mkFIFO1();
+    FIFO#(RVExecutedInstruction) memoryAccessCompletedQueue <- mkFIFO1();
     Reg#(PipelineEpoch) memoryAccessEpoch <- mkReg(0);
 
     (* fire_when_enabled *)
@@ -250,8 +224,8 @@ module mkRG100Core#(
         if (memoryAccessInfo.epoch < memoryAccessEpoch) begin
             executedInstructionQueue.deq();
         end else begin
-            let executedInstruction = executedInstructionQueue.first().executedInstruction;
-            if(executedInstruction.loadStore matches tagged Valid .loadStore) begin
+            let executedInstruction = executedInstructionQueue.first();
+            if(executedInstruction.loadRequest matches tagged Valid .load) begin
                 // See if a load request has completed
                 if (waitingForLoadToComplete) begin
                     // if (dataMemory.isLoadReady()) begin
@@ -293,13 +267,10 @@ module mkRG100Core#(
                 end
             end else begin
                 // Not a LOAD/STORE
-                $display("[%08d:%08x:memory] not a load/store instruction", csrFile.cycle_counter, executedInstruction.decodedInstruction.programCounter);
+                $display("[%08d:%08x:memory] not a load/store instruction", csrFile.cycle_counter, executedInstruction.programCounter);
 
                 executedInstructionQueue.deq();
-                memoryAccessCompletedQueue.enq(ExecutionInfo {
-                    executedInstruction: executedInstruction,
-                    epoch: memoryAccessEpoch
-                });
+                memoryAccessCompletedQueue.enq(executedInstruction);
             end
         end
     endrule
@@ -311,20 +282,20 @@ module mkRG100Core#(
         if (memoryAccessCompletedQueue.first().epoch < writeBackEpoch) begin
             memoryAccessCompletedQueue.deq();
         end else begin
-            let memoryAccessCompleteInstruction = memoryAccessCompletedQueue.first().executedInstruction;
+            let memoryAccessCompleteInstruction = memoryAccessCompletedQueue.first();
 
             if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
-                $display("[%08d:%08x:writeback] writing result ($%08x) to register x%d", csrFile.cycle_counter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, wb.value, wb.rd);
+                $display("[%08d:%08x:writeback] writing result ($%08x) to register x%d", csrFile.cycle_counter, memoryAccessCompleteInstruction.programCounter, wb.value, wb.rd);
                 registerFile.write(wb.rd, wb.value);
             end else begin
-                $display("[%08d:%08x:writeback] NO-OP", csrFile.cycle_counter, memoryAccessCompleteInstruction.decodedInstruction.programCounter);
+                $display("[%08d:%08x:writeback] NO-OP", csrFile.cycle_counter, memoryAccessCompleteInstruction.programCounter);
             end
 
             // Handle any exceptions
             if (memoryAccessCompleteInstruction.exception matches tagged Valid .exception) begin
-                let exceptionVector = csrFile.beginException(currentPrivilegeLevel, exception.exceptionType);
+                let exceptionVector = csrFile.beginException(currentPrivilegeLevel, exception.cause);
 
-                $display("[%08d:%08x:writeback] EXCEPTION: %d - Jumping to $%08x", csrFile.cycle_counter, memoryAccessCompleteInstruction.decodedInstruction.programCounter, exception.exceptionType, exceptionVector);
+                $display("[%08d:%08x:writeback] EXCEPTION: %d - Jumping to $%08x", csrFile.cycle_counter, memoryAccessCompleteInstruction.programCounter, exception.cause, exceptionVector);
                 $fatal();
             end else begin
                 memoryAccessCompletedQueue.deq();

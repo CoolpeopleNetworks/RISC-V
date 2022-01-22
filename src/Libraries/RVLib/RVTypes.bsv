@@ -26,3 +26,5 @@ typedef enum {
     PRIVILEGE_LEVEL_HYPERVISOR  = 2'b10,
     PRIVILEGE_LEVEL_MACHINE     = 2'b11
 } PrivilegeLevel deriving(Bits, Eq);
+
+typedef Word PipelineEpoch;

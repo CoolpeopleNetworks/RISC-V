@@ -3,6 +3,7 @@ import RVALU::*;
 import RVInstruction::*;
 
 typedef struct {
+    PipelineEpoch epoch;
     RVOpcode opcode;
     ProgramCounter programCounter;
     RVALUOperator aluOperator;
@@ -10,10 +11,15 @@ typedef struct {
     RVBranchOperator branchOperator;
     RVSystemOperator systemOperator;
     ProgramCounter predictedBranchTarget;
-    RegisterIndex rd;
+
+    Maybe#(RegisterIndex) rd;
     Maybe#(RegisterIndex) rs1;
     Maybe#(RegisterIndex) rs2;
     Maybe#(Word) immediate;
+
+    Word rs1Value;
+    Word rs2Value;
+
 } RVDecodedInstruction deriving(Bits, Eq, FShow);
 
 interface RVDecoder;
@@ -60,6 +66,7 @@ module mkRVDecoder(RVDecoder);
         let immediate31_20 = signExtend(instruction[31:20]); // same bits as {func7, rs2}
 
         let decodedInstruction = RVDecodedInstruction {
+            epoch: ?,
             opcode: UNSUPPORTED_OPCODE,
             programCounter: programCounter,
             aluOperator: unpack({func7, func3}),
@@ -67,10 +74,12 @@ module mkRVDecoder(RVDecoder);
             branchOperator: ?,
             systemOperator: ?,
             predictedBranchTarget: ?,
-            rd: rd,
+            rd: tagged Invalid,
             rs1: tagged Invalid,
             rs2: tagged Invalid,
-            immediate: tagged Invalid
+            immediate: tagged Invalid,
+            rs1Value: ?,
+            rs2Value: ?
         };
 
         case(opcode)
@@ -80,6 +89,7 @@ module mkRVDecoder(RVDecoder);
             7'b0000011: begin
                 if (isValidLoadInstruction(func3)) begin
                     decodedInstruction.opcode = LOAD;
+                    decodedInstruction.rd = tagged Valid rd;
                     decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.immediate = tagged Valid immediate31_20;
                 end
@@ -92,11 +102,13 @@ module mkRVDecoder(RVDecoder);
                 if (func3[1:0] == 2'b01) begin
                     if (func7 == 7'b0000000 || func7 == 7'b0100000) begin
                         decodedInstruction.opcode = ALU;
+                        decodedInstruction.rd = tagged Valid rd;
                         decodedInstruction.rs1 = tagged Valid rs1;
                         decodedInstruction.immediate = tagged Valid extend(shamt);
                     end
                 end else begin
                     decodedInstruction.opcode = ALU;
+                    decodedInstruction.rd = tagged Valid rd;
                     decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.immediate = tagged Valid immediate31_20;
                 end
@@ -106,6 +118,7 @@ module mkRVDecoder(RVDecoder);
             //
             7'b0010111: begin
                 decodedInstruction.opcode = COPY_IMMEDIATE;
+                decodedInstruction.rd = tagged Valid rd;
                 decodedInstruction.immediate = tagged Valid ({instruction[31:12], 12'b0} + programCounter);
             end
             //
@@ -125,6 +138,7 @@ module mkRVDecoder(RVDecoder);
             7'b0110011: begin
                 if (func7 == 7'b0000000 || (func7 == 7'b0100000 && (func3 == 3'b000 || func3 == 3'b101)))   
                     decodedInstruction.opcode = ALU;
+                    decodedInstruction.rd = tagged Valid rd;
                     decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.rs2 = tagged Valid rs2;
             end
@@ -133,6 +147,7 @@ module mkRVDecoder(RVDecoder);
             //
             7'b0110111: begin
                 decodedInstruction.opcode = COPY_IMMEDIATE;
+                decodedInstruction.rd = tagged Valid rd;
                 decodedInstruction.immediate = tagged Valid ({instruction[31:12], 12'b0});
             end
             //
@@ -162,6 +177,7 @@ module mkRVDecoder(RVDecoder);
             //
             7'b1100111: begin
                 decodedInstruction.opcode = JUMP_INDIRECT;
+                decodedInstruction.rd = tagged Valid rd;
                 decodedInstruction.rs1 = tagged Valid rs1;
                 decodedInstruction.immediate = tagged Valid signExtend(instruction[31:20]);
             end
@@ -170,6 +186,7 @@ module mkRVDecoder(RVDecoder);
             //
             7'b1101111: begin
                 decodedInstruction.opcode = JUMP;
+                decodedInstruction.rd = tagged Valid rd;
                 decodedInstruction.immediate = tagged Valid signExtend({
                     instruction[31],    // 1 bit
                     instruction[19:12], // 8 bits

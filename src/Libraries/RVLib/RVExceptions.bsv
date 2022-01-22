@@ -20,4 +20,8 @@ typedef enum {
     // RESERVED = 32-47
     // CUSTOM USE = 48-63
     // RESERVER >= 64
-} ExceptionType deriving(Bits, Eq);
+} RVExceptionCause deriving(Bits, Eq, FShow);
+
+typedef struct {
+    RVExceptionCause cause;
+} RVException deriving(Bits, Eq, FShow);
