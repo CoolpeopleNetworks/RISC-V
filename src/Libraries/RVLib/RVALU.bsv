@@ -27,8 +27,7 @@ typedef enum {  // NOTE: These are decoded as the concat of func7 and func3
 } RVALUOperators deriving(Bits, Eq, FShow);
 
 interface RVALU;
-    method Word execute(Word operand1, Word operand2, RVALUOperator operator);
-    method Word execute_immediate(Word operand1, Bit#(12) immediate, RVALUOperator operator);
+    method Maybe#(Word) execute(RVALUOperator operator, Word operand1, Word operand2);
 endinterface
 
 (* synthesize *)
@@ -43,27 +42,19 @@ module mkRVALU(RVALU);
         return (signedOperand1 < signedOperand2 ? 1 : 0);
     endfunction
 
-    function Word execute_internal(Word operand1, Word operand2, RVALUOperator operator);
+    method Maybe#(Word) execute(RVALUOperator operator, Word operand1, Word operand2);
         return case(unpack(operator))
-            ADD:    (operand1 + operand2);
-            SUB:    (operand1 - operand2);
-            AND:    (operand1 & operand2);
-            OR:     (operand1 | operand2);
-            XOR:    (operand1 ^ operand2);
-            SLTU:   setLessThanUnsigned(operand1, operand2);
-            SLT:    setLessThan(operand1, operand2);
-            SLL:    (operand1 << operand2[4:0]);
-            SRA:    signedShiftRight(operand1, operand2[4:0]);
-            SRL:    (operand1 >> operand2[4:0]);
-            // BUGBUG: how to handle invalid operators?
+            ADD:    tagged Valid (operand1 + operand2);
+            SUB:    tagged Valid (operand1 - operand2);
+            AND:    tagged Valid (operand1 & operand2);
+            OR:     tagged Valid (operand1 | operand2);
+            XOR:    tagged Valid (operand1 ^ operand2);
+            SLTU:   tagged Valid setLessThanUnsigned(operand1, operand2);
+            SLT:    tagged Valid setLessThan(operand1, operand2);
+            SLL:    tagged Valid (operand1 << operand2[4:0]);
+            SRA:    tagged Valid signedShiftRight(operand1, operand2[4:0]);
+            SRL:    tagged Valid (operand1 >> operand2[4:0]);
+            default: tagged Invalid;
         endcase;
-    endfunction
-
-    method Word execute(Word operand1, Word operand2, RVALUOperator operator);
-        return execute_internal(operand1, operand2, operator);
-    endmethod
-
-    method Word execute_immediate(Word operand1, Bit#(12) immediate, RVALUOperator operator);
-        return execute_internal(operand1, signExtend(immediate), operator);
     endmethod
 endmodule

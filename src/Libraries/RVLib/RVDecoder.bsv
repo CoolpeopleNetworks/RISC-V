@@ -8,6 +8,7 @@ typedef struct {
     ProgramCounter programCounter;
     RVALUOperator aluOperator;
     RVLoadOperator loadOperator;
+    RVStoreOperator storeOperator;
     RVBranchOperator branchOperator;
     RVSystemOperator systemOperator;
     ProgramCounter predictedBranchTarget;
@@ -19,7 +20,6 @@ typedef struct {
 
     Word rs1Value;
     Word rs2Value;
-
 } RVDecodedInstruction deriving(Bits, Eq, FShow);
 
 interface RVDecoder;
@@ -71,6 +71,7 @@ module mkRVDecoder(RVDecoder);
             programCounter: programCounter,
             aluOperator: unpack({func7, func3}),
             loadOperator: unpack(func3),
+            storeOperator: unpack(func3),
             branchOperator: ?,
             systemOperator: ?,
             predictedBranchTarget: ?,

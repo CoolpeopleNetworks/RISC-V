@@ -6,12 +6,7 @@ import RVDecoder::*;
 import RVTypes::*;
 import RVInstruction::*;
 
-import Instruction::*;
 import Scoreboard::*;
-
-// Core stages
-import InstructionDecoder::*;
-import InstructionExecutor::*;
 
 import FIFO::*;
 import FIFOF::*;
@@ -161,7 +156,7 @@ module mkRG100Core#(
     //
     // Stage 3 - Instruction execution
     //
-    RVExecutor instructionExecutor <- mkRVExecutor();
+    RVExecutor instructionExecutor <- mkRVExecutor(csrFile);
     FIFO#(RVExecutedInstruction) executedInstructionQueue <- mkFIFO1();
     Reg#(PipelineEpoch) executionEpoch <- mkReg(0);
 
@@ -190,7 +185,7 @@ module mkRG100Core#(
             end
 
             // let executedInstruction = executeDecodedInstruction(decodedInstruction);
-            let executedInstruction =  instructionExecutor.execute(decodedInstruction);
+            let executedInstruction <- instructionExecutor.execute(decodedInstruction);
 
             // If writeback data exists, that needs to be written into the previous pipeline 
             // stages using operand forwarding.
