@@ -69,5 +69,5 @@ module mkCoreTest(Empty);
     DataMemory dataMemory <- mkDataMemory();
 
     // Core
-    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory, 80, False);
+    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory, 200, True);
 endmodule

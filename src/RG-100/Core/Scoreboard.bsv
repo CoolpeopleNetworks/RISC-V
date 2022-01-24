@@ -1,11 +1,11 @@
 import RVTypes::*;
 import Vector::*;
-//import CReg::*;
 
 interface Scoreboard#(numeric type size);
     method Action insert(Maybe#(RegisterIndex) dst);
     method Bool search(Maybe#(RegisterIndex) s1, Maybe#(RegisterIndex) s2);
     method Action remove;
+    method Bit#(TAdd#(TLog#(size),1)) size;
 endinterface
 
 module mkScoreboard(Scoreboard#(size));
@@ -37,4 +37,6 @@ module mkScoreboard(Scoreboard#(size));
         ridx <= ridx == fromInteger(valueOf(size)) - 1 ? 0 : ridx + 1;
         count[0] <= count[0] - 1;
     endmethod
+
+    method Bit#(TAdd#(TLog#(size),1)) size = count[1];
 endmodule

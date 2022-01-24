@@ -56,6 +56,7 @@ interface RVCSRFile;
     // Special purpose
     method Word64 cycle_counter;
     method Action increment_cycle_counter;
+    method Word64 instructions_retired_counter;
     method Action increment_instructions_retired_counter;
 endinterface
 
@@ -116,6 +117,10 @@ module mkRVCSRFile(RVCSRFile);
         cycleCounter <= cycleCounter + 1;
     endmethod
 
+    method Word64 instructions_retired_counter;
+        return instructionsRetiredCounter;
+    endmethod
+    
     method Action increment_instructions_retired_counter;
         instructionsRetiredCounter <= instructionsRetiredCounter + 1;
     endmethod

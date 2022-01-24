@@ -53,6 +53,11 @@ module mkRG100Core#(
     Reg#(Word64) cycleLimit <- mkReg(cLimit);  // 0 = no limit
 
     //
+    // CPU Halt Flag
+    //
+    Reg#(Bool) halt <- mkReg(False);
+
+    //
     // CSR (Control and Status Register) file
     //
     RVCSRFile csrFile <- mkRVCSRFile();
@@ -175,6 +180,8 @@ module mkRG100Core#(
             let decodedInstruction = decoder.decode(programCounter, encodedInstruction);
             decodedInstruction.epoch = decoderEpoch[2];
 
+            $display("%0d,%0d,%0d,2,decode,scoreboard size: %0d", csrFile.cycle_counter, decoderEpoch[2], fetchInfoQueue.first.programCounter, scoreboard.size);
+
             let stallWaitingForOperands = scoreboard.search(decodedInstruction.rs1, decodedInstruction.rs2);
             if (stallWaitingForOperands) begin
                 $display("%0d,%0d,%0d,2,decode,stall waiting for operands", csrFile.cycle_counter, currentEpoch, programCounter);
@@ -189,12 +196,14 @@ module mkRG100Core#(
                 if (isValid(decodedInstruction.rs2))
                     decodedInstruction.rs2Value = registerFile.read2(fromMaybe(?, decodedInstruction.rs2));
 
-                $display("%0d,%0d,%0d,2,decode,decode complete", csrFile.cycle_counter, currentEpoch, programCounter);
-//                $display("%0d,%0d,%0d,2,decode,", csrFile.cycle_counter, currentEpoch, programCounter, fshow(decodedInstruction));
+//                if (isValid(decodedInstruction.rd))
+                    scoreboard.insert(decodedInstruction.rd);
 
                 // Send the decode result to the output queue.
                 decodedInstructionQueue.enq(decodedInstruction);
-                scoreboard.insert(decodedInstruction.rd);
+
+                $display("%0d,%0d,%0d,2,decode,decode complete", csrFile.cycle_counter, currentEpoch, programCounter);
+//                $display("%0d,%0d,%0d,2,decode,", csrFile.cycle_counter, currentEpoch, programCounter, fshow(decodedInstruction));
             end
         end
     endrule
@@ -222,11 +231,11 @@ module mkRG100Core#(
                 case(decodedInstruction.systemOperator)
                     pack(ECALL): begin
                         $display("%0d,%0d,%0d,3,execute,ECALL instruction encountered - HALTED", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter);
-                        $finish();
+                        halt <= True;
                     end
                     pack(EBREAK): begin
                         $display("%0d,%0d,%0d,3,execute,EBREAK instruction encountered - HALTED", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter);
-                        $finish();
+                        halt <= True;
                     end
                 endcase
             end
@@ -252,7 +261,6 @@ module mkRG100Core#(
             // stages using operand forwarding.
             if (executedInstruction.writeBack matches tagged Valid .wb) begin
                 $display("%0d,%0d,%0d,3,execute,complete (WB: x%0d = %08x)", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, wb.rd, wb.value);
-                scoreboard.remove;
             end else begin
                 // Note: any exceptions are passed through until handled inside the writeback
                 // stage.
@@ -263,6 +271,7 @@ module mkRG100Core#(
                 end
             end
 
+            scoreboard.remove;
             executedInstructionQueue.enq(executedInstruction);
         end
     endrule
@@ -377,9 +386,17 @@ module mkRG100Core#(
     rule incrementCycleCounter;
         if (cycleLimit > 0 && csrFile.cycle_counter > cycleLimit) begin
             $display("%0d,%0d,%0d,cycleCounter,Cycle limit reached...exitting.", csrFile.cycle_counter, 1000000000, 1000000000);
-            $finish();
+            halt <= True;
         end
 
         csrFile.increment_cycle_counter();
+    endrule
+
+    (* fire_when_enabled, no_implicit_conditions *)
+    rule haltCheck;
+        if (halt) begin
+            $display("CPU HALTED. Cycles: %0d - Instructions retired: %0d", csrFile.cycle_counter, csrFile.instructions_retired_counter);
+            $finish();
+        end
     endrule
 endmodule
