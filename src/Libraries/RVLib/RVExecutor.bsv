@@ -107,8 +107,6 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
             ALU: begin
                 dynamicAssert(isValid(decodedInstruction.rd), "ALU: rd is invalid");
                 dynamicAssert(isValid(decodedInstruction.rs1), "ALU: rs1 is invalid");
-                dynamicAssert(isValid(decodedInstruction.rs2) == False, "ALU: rs2 SHOULD BE invalid");
-                dynamicAssert(isValid(decodedInstruction.immediate) == False, "ALU: immediate SHOULD BE invalid");
 
                 let result = alu.execute(
                     decodedInstruction.aluOperator, 
@@ -128,7 +126,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
             BRANCH: begin
                 dynamicAssert(isValid(decodedInstruction.rd) == False, "BRANCH: rd SHOULD BE invalid");
                 dynamicAssert(isValid(decodedInstruction.rs1), "BRANCH: rs1 is invalid");
-                dynamicAssert(isValid(decodedInstruction.rs2) == False, "BRANCH: rs2 SHOULD BE invalid");
+                dynamicAssert(isValid(decodedInstruction.rs2), "BRANCH: rs2 is invalid");
                 dynamicAssert(isValid(decodedInstruction.immediate), "BRANCH: immediate is invalid");
 
                 if (isValidBranchOperator(decodedInstruction.branchOperator) &&
@@ -235,6 +233,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
             end
 
             SYSTEM: begin
+                executedInstruction.exception = tagged Invalid;
             end
         endcase
 

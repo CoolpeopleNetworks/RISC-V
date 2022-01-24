@@ -166,6 +166,7 @@ module mkRVDecoder(RVDecoder);
                     let branchTarget = programCounter + immediate;
                     Bool branchDirectionNegative = (msb(immediate) == 1'b1 ? True : False);
                     decodedInstruction.opcode = BRANCH;
+                    decodedInstruction.branchOperator = func3;
                     decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.rs2 = tagged Valid rs2;
                     decodedInstruction.immediate = tagged Valid immediate;

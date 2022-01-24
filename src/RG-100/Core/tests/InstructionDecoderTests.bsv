@@ -13,7 +13,7 @@ module mkInstructionDecoderTests(Empty);
     //         0: begin
     //             let decodedInstruction = decodeInstruction(0);
     //             if (decodedInstruction.instructionType != UNSUPPORTED) begin
-    //                 $display("Instruction Decoder - Test %0d failed - Expected %d, Found: %0d", testNumber, UNSUPPORTED, decodedInstruction.instructionType);
+    //                 $display("Instruction Decoder - Test %0d failed - Expected %0d, Found: %0d", testNumber, UNSUPPORTED, decodedInstruction.instructionType);
     //                 $fatal(); 
     //             end
     //         end
