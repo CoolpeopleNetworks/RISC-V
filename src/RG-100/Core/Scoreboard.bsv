@@ -27,8 +27,9 @@ module mkScoreboard(Scoreboard#(size));
 
     method Bool search(Maybe#(RegisterIndex) s1, Maybe#(RegisterIndex) s2);
         Bit#(size) r = 0;
-        for (Integer i = 0; i < valueOf(size); i = i + 1)
+        for (Integer i = 0; i < valueOf(size); i = i + 1) begin
             r[i] = pack(dataHazard(s1, s2, entries[i][1]._read()));
+        end
         return r != 0;
     endmethod
 
