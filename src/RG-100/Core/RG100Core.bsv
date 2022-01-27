@@ -6,6 +6,8 @@ import RVDecoder::*;
 import RVTypes::*;
 import RVInstruction::*;
 
+import ProgramCounterRedirect::*;
+
 import Scoreboard::*;
 
 import FIFO::*;
@@ -23,7 +25,6 @@ interface RG100Core;
 endinterface
 
 typedef struct {
-    ProgramCounter programCounter;
     PipelineEpoch epoch;
 } FetchInfo deriving(Bits, Eq);
 
@@ -51,6 +52,8 @@ module mkRG100Core#(
     // Cycle Limit (Debugging)
     //
     Reg#(Word64) cycleLimit <- mkReg(cLimit);  // 0 = no limit
+
+    Reg#(Word64) cycleCounter <- mkReg(0);
 
     //
     // CPU Halt Flag
@@ -98,9 +101,7 @@ module mkRG100Core#(
     // Stage 1 - Instruction fetch
     //
     Reg#(ProgramCounter) fetchProgramCounter <- mkReg(initialProgramCounter);
-    Reg#(Maybe#(ProgramCounter)) programCounterRedirect[3] <- mkCReg(3, tagged Invalid);
-    // RWire#(ProgramCounter) programCounterRedirectExecution <- mkRWire();
-    // RWire#(ProgramCounter) programCounterRedirectException <- mkRWire();
+    ProgramCounterRedirect programCounterRedirect <- mkProgramCounterRedirect;
 
     // This FIFO holds the program counter value for the instruction that's being
     // fetched.
@@ -108,32 +109,16 @@ module mkRG100Core#(
 
     Reg#(Bool) fetchEnabled <- mkReg(True);
 
-//    (* fire_when_enabled *)
+    (* fire_when_enabled *)
     rule fetchInstruction(fetchEnabled == True);
         // Get the current program counter from the 'fetchProgramCounter' register, if the 
         // program counter redirect has a value, move that into the program counter and
         // increment the epoch.
         let currentEpoch = fetchEpoch;
         let programCounter = fetchProgramCounter;
-        // if (programCounterRedirectException.wget() matches tagged Valid .programCounterRedirect) begin
-        //     programCounter = programCounterRedirect;
-
-        //     $display("[%0d:%08x:fetch] redirected PC (Exception) = $%08x", csrFile.cycle_counter, programCounter, programCounter);
-        //     currentEpoch = fetchEpoch + 1;
-        //     fetchEpoch <= currentEpoch;
-        // end
-
-        // if (programCounterRedirectExecution.wget() matches tagged Valid .programCounterRedirect) begin
-        //     programCounter = programCounterRedirect;
-
-        //     $display("[%0d:%08x:fetch] redirected PC (Branch/Jump) = $%08x", csrFile.cycle_counter, programCounter, programCounter);
-        //     currentEpoch = fetchEpoch + 1;
-        //     fetchEpoch <= currentEpoch;
-        // end
-
-        if (isValid(programCounterRedirect[2])) begin
-            programCounter = fromMaybe(?, programCounterRedirect[2]);
-            programCounterRedirect[2] <= tagged Invalid;
+        let redirectedProgramCounter <- programCounterRedirect.getRedirectedProgramCounter();
+        if (isValid(redirectedProgramCounter)) begin
+            programCounter = fromMaybe(?, redirectedProgramCounter);
 
             currentEpoch = fetchEpoch + 1;
             fetchEpoch <= currentEpoch;
@@ -145,11 +130,12 @@ module mkRG100Core#(
         $display("%0d,%0d,%0d,1,fetch,fetching instruction", csrFile.cycle_counter, currentEpoch, programCounter);
 
         // Perform memory request
-        instructionMemory.request(programCounter);
+        instructionMemory.request(InstructionMemoryRequest {
+            address: programCounter
+        });
 
         // Tell the decode stage what the program counter for the insruction it'll receive.
         fetchInfoQueue.enq(FetchInfo {
-            programCounter: programCounter,
             epoch: currentEpoch
         });
 
@@ -169,18 +155,19 @@ module mkRG100Core#(
 
     (* fire_when_enabled *)
     rule decodeInstruction;
-        let encodedInstruction = instructionMemory.first;
+        let instructionMemoryResponse = instructionMemory.first;
         if (fetchInfoQueue.first().epoch < decoderEpoch[2]) begin
-            $display("%0d,%0d,%0d,2,decode,stale instruction (%0d != %0d)...ignoring", csrFile.cycle_counter, decoderEpoch[2], fetchInfoQueue.first.programCounter, fetchInfoQueue.first().epoch, decoderEpoch[2]);
+            $display("%0d,%0d,%0d,2,decode,stale instruction (%0d != %0d)...ignoring", csrFile.cycle_counter, decoderEpoch[2], instructionMemoryResponse.address, fetchInfoQueue.first().epoch, decoderEpoch[2]);
             instructionMemory.deq();
             fetchInfoQueue.deq();
         end else begin
-            let programCounter = fetchInfoQueue.first.programCounter;
+            let encodedInstruction = instructionMemoryResponse.data;
+            let programCounter = instructionMemoryResponse.address;
             let currentEpoch = decoderEpoch[2];
             let decodedInstruction = decoder.decode(programCounter, encodedInstruction);
             decodedInstruction.epoch = decoderEpoch[2];
 
-            $display("%0d,%0d,%0d,2,decode,scoreboard size: %0d", csrFile.cycle_counter, decoderEpoch[2], fetchInfoQueue.first.programCounter, scoreboard.size);
+            $display("%0d,%0d,%0d,2,decode,scoreboard size: %0d", csrFile.cycle_counter, decoderEpoch[2], programCounter, scoreboard.size);
 
             let stallWaitingForOperands = scoreboard.search(decodedInstruction.rs1, decodedInstruction.rs2);
             if (stallWaitingForOperands) begin
@@ -254,7 +241,7 @@ module mkRG100Core#(
 
                 let targetAddress = fromMaybe(?, executedInstruction.changedProgramCounter);
                 $display("%0d,%0d,%0d,3,execute,branch/jump to: $%08x", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, targetAddress);
-                programCounterRedirect[1] <= tagged Valid targetAddress;
+                programCounterRedirect.branch(targetAddress);
             end
 
             // If writeback data exists, that needs to be written into the previous pipeline 
@@ -369,7 +356,7 @@ module mkRG100Core#(
                 memoryAccessEpoch[0] <= memoryAccessEpoch[0] + 1;
                 writeBackEpoch[0] <= writeBackEpoch[0] + 1;
 
-                programCounterRedirect[0] <= tagged Valid exceptionVector; 
+                programCounterRedirect.exception(exceptionVector); 
 
                 $display("%0d,%0d,%0d,5,writeback,EXCEPTION: %0d - Jumping to $%08x", csrFile.cycle_counter, stageEpoch, memoryAccessCompleteInstruction.programCounter, exception.cause, exceptionVector);
                 $fatal();
@@ -389,6 +376,7 @@ module mkRG100Core#(
             halt <= True;
         end
 
+        cycleCounter <= cycleCounter + 1;
         csrFile.increment_cycle_counter();
     endrule
 
