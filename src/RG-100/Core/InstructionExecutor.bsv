@@ -1,17 +1,23 @@
 import RVTypes::*;
 import RVALU::*;
-import RVDecoder::*;
-import RVExceptions::*;
-import RVInstruction::*;
 import RVCSRFile::*;
+import RVInstruction::*;
+import RVExceptions::*;
+
+import DecodedInstruction::*;
+import ExecutedInstruction::*;
 
 import Assert::*;
 
-interface RVExecutor;
-    method ActionValue#(RVExecutedInstruction) execute(RVDecodedInstruction decodedInstruction);
+export InstructionExecutor(..), mkInstructionExecutor;
+
+interface InstructionExecutor;
+    method ActionValue#(ExecutedInstruction) executeInstruction(DecodedInstruction decodedInstruction);
 endinterface
 
-module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
+module mkInstructionExecutor#(
+    RVCSRFile csrFile
+)(InstructionExecutor);
     RVALU alu <- mkRVALU();
 
     function Bool isValidBranchOperator(RVBranchOperator operator);
@@ -19,7 +25,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
                 operator != pack(UNSUPPORTED_BRANCH_OPERATOR_011)) ? True : False;
     endfunction
 
-    function Bool isBranchTaken(RVDecodedInstruction decodedInstruction);
+    function Bool isBranchTaken(DecodedInstruction decodedInstruction);
         // NOTE: Validity of the branch operator has already been checked.
         return case(decodedInstruction.branchOperator)
             pack(BEQ): return (decodedInstruction.rs1Value == decodedInstruction.rs2Value);
@@ -65,8 +71,8 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
         return pack(unpack(programCounter) + offset);
     endfunction
 
-    method ActionValue#(RVExecutedInstruction) execute(RVDecodedInstruction decodedInstruction);
-        let executedInstruction = RVExecutedInstruction {
+    method ActionValue#(ExecutedInstruction) executeInstruction(DecodedInstruction decodedInstruction);
+        let executedInstruction = ExecutedInstruction {
             epoch: decodedInstruction.epoch,
             programCounter: decodedInstruction.programCounter,
             changedProgramCounter: tagged Invalid,
@@ -90,7 +96,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
                 );
 
                 if (isValid(result)) begin
-                    executedInstruction.writeBack = tagged Valid RVWriteBack {
+                    executedInstruction.writeBack = tagged Valid WriteBack {
                         rd: fromMaybe(?, decodedInstruction.rd),
                         value: fromMaybe(?, result)
                     };
@@ -131,7 +137,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
                 dynamicAssert(isValid(decodedInstruction.rs1) == False, "COPY_IMMEDIATE: rs1 SHOULD BE invalid");
                 dynamicAssert(isValid(decodedInstruction.rs2) == False, "COPY_IMMEDIATE: rs2 SHOULD BE invalid");
                 dynamicAssert(isValid(decodedInstruction.immediate), "COPY_IMMEDIATE: immediate is invalid");
-                executedInstruction.writeBack = tagged Valid RVWriteBack {
+                executedInstruction.writeBack = tagged Valid WriteBack {
                     rd: fromMaybe(?, decodedInstruction.rd),
                     value: fromMaybe(?, decodedInstruction.immediate)
                 };
@@ -151,7 +157,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
                     };
                 end else begin
                     executedInstruction.changedProgramCounter = tagged Valid jumpTarget;
-                    executedInstruction.writeBack = tagged Valid RVWriteBack {
+                    executedInstruction.writeBack = tagged Valid WriteBack {
                         rd: fromMaybe(?, decodedInstruction.rd),
                         value: (decodedInstruction.programCounter + 4)
                     };
@@ -174,7 +180,7 @@ module mkRVExecutor#(RVCSRFile csrFile)(RVExecutor);
                     };
                 end else begin
                     executedInstruction.changedProgramCounter = tagged Valid jumpTarget;
-                    executedInstruction.writeBack = tagged Valid RVWriteBack {
+                    executedInstruction.writeBack = tagged Valid WriteBack {
                         rd: fromMaybe(?, decodedInstruction.rd),
                         value: (decodedInstruction.programCounter + 4)
                     };
