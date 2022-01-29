@@ -38,33 +38,20 @@ TARGET=""
 INCLUDE_DIRECTORIES=("%/Libraries")
 COMPILE=true
 LINK=false
-PARSING_INCLUDES=false
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
     key="$1"
 
     case $key in
-        -beginIncludes)
-            PARSING_INCLUDES=true
-            shift
-            ;;
-        -endIncludes)
-            PARSING_INCLUDES=false
-            shift
-            ;;
         -o|--output)
             OUTPUT="$2"
             shift # past argument
             shift # past value
             ;;
         -I)
-            # Ignore our own target directory to remove the posibility of encountering 
-            # multple dependencies.
-            if [[ $2 != *$TARGET ]]; then
-                log "[bsvc] Library Include Directory Specified: $2"
-                INCLUDE_DIRECTORIES+=("$2")
-            fi
+            log "[bsvc] Library Include Directory Specified: $2"
+            INCLUDE_DIRECTORIES+=("$2")
             shift # past argument
             shift # past value
             ;;
@@ -83,10 +70,8 @@ while [[ $# -gt 0 ]]; do
             shift # past argument
             ;;
         *)    # unknown option
-            if [ "$PARSING_INCLUDES" == "true" ]; then
-                INCLUDE_DIRECTORIES+=("$1")
-                log "[bsvc] Adding include directory: $1"
-            elif [ "$TARGET" == "" ] || [[ $1 != *$TARGET ]]; then
+            # If it's a directory, assume it's an include directory
+            if [ "$TARGET" == "" ] || [[ $1 != *$TARGET ]]; then
                 POSITIONAL+=("$1")
                 log "[bsvc] Adding optional argument: $1"
             fi
@@ -95,7 +80,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-#log "[bsvc] COMMAND_LINE: $COMMAND_LINE"
+log "[bsvc] COMMAND_LINE: $COMMAND_LINE"
 
 if [ ${#POSITIONAL[@]} -eq 0 ]; then
     echo "[bsvc] ERROR: No input files specified."
@@ -149,17 +134,4 @@ else
 
     # Run the compiler
     $BSV_COMPILER -q -u -sim -bdir "$OUTPUT_DIR" -simdir "$OUTPUT_DIR" -info-dir "$OUTPUT_DIR" -p "$INCLUDE_DIRECTORIES_SPEC:$SOURCE_DIR" "$INPUT_FILE"
-
-    # bsc outputs foo.bo for inputs of foo.bsv which may not be what CMake expects.
-    # If the output file is different than what CMake expects copy it.
-    # OUTPUT_FILENAME_EXPECTED=$(basename "$OUTPUT")
-    # OUTPUT_FILENAME_ACTUAL=$(basename "$INPUT_FILE" .bsv).bo
-
-    # if [ "$OUTPUT_FILENAME_EXPECTED" != "$OUTPUT_NAME_ACTUAL" ]; then
-    #     OUTPUT_FILE_SOURCE="$OUTPUT_DIR/$OUTPUT_FILENAME_ACTUAL"
-    #     OUTPUT_FILE_DEST="$OUTPUT_DIR/$OUTPUT_FILENAME_EXPECTED"
-
-    #     log "[bsvc] Copying $OUTPUT_FILE_SOURCE to $OUTPUT_FILE_DEST"
-    #     cp "$OUTPUT_FILE_SOURCE" "$OUTPUT_FILE_DEST"
-    # fi
 fi

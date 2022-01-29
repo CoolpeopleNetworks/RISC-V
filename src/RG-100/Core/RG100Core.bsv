@@ -164,7 +164,7 @@ module mkRG100Core#(
     );
     mkConnection(memoryAccessUnit.getMemoryAccessedInstruction, writebackUnit.putMemoryAccessedInstruction);
 
-`ifndef PIPELINED
+`ifdef UNPIPELINED
     (* fire_when_enabled, no_implicit_conditions *)
     rule nonPipelinedMode;
         let wasRetired <- writebackUnit.wasInstructionRetired;
