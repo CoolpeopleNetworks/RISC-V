@@ -5,6 +5,4 @@ enable_testing()
 
 project(RISC-V BSV)
 
-set(BSV_DEFINES -D RV32)
-
 add_subdirectory(src)

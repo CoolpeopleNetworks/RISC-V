@@ -11,4 +11,9 @@ target_link_libraries(CoreTest
     RVLib::RVLib
     RecycleBSVLib::RecycleBSVLib
 )
+
+target_compile_definitions(CoreTest PUBLIC
+    RV32
+)
+
 #add_bsim_testbench(InstructionDecoderTests InstructionDecoderTests.bsv)
