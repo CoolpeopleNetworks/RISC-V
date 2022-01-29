@@ -248,9 +248,9 @@ module mkDecodeUnit#(
     (* fire_when_enabled *)
     rule decode;
         let instructionMemoryResponse = inputQueue.first;
-        let stageEpoch = pipelineController.stageEpoch(stageNumber);
+        let stageEpoch = pipelineController.stageEpoch(stageNumber, 2);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, instructionMemoryResponse.pipelineEpoch)) begin
+        if (!pipelineController.isCurrentEpoch(stageNumber, 2, instructionMemoryResponse.pipelineEpoch)) begin
             $display("%0d,%0d,%0d,%0d,decode,stale instruction...ignoring", cycleCounter, stageEpoch, instructionMemoryResponse.programCounter, stageNumber);
             inputQueue.deq();
         end else begin

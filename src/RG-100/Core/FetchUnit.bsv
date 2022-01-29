@@ -19,16 +19,17 @@ module mkFetchUnit#(
     ProgramCounter initialProgramCounter,
     ProgramCounterRedirect programCounterRedirect,
     InstructionMemory instructionMemory,
-    Bool pipelined
+    Reg#(Bool) fetchEnabled
 )(FetchUnit);
     Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
     FIFO#(EncodedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(PipelineEpoch) currentEpoch <- mkReg(0);
 
     FIFO#(PipelineEpoch) instructionEpoch <- mkFIFO(); // holds the epoch for the current instruction request
-    Reg#(Bool) fetchEnabled <- mkReg(True);
 
-    (* fire_when_enabled *)
+`ifdef PIPELINED
+    (* fire_when_enabled *) this can't be enabled in non-pipelined mode.
+`endif
     rule sendFetchRequest(fetchEnabled == True);
         // Get the current program counter from the 'fetchProgramCounter' register, if the 
         // program counter redirect has a value, move that into the program counter and
@@ -53,6 +54,10 @@ module mkFetchUnit#(
         instructionEpoch.enq(fetchEpoch);
 
         programCounter <= fetchProgramCounter + 4;
+
+`ifndef PIPELINED
+        fetchEnabled <= False;
+`endif
     endrule
 
     (* fire_when_enabled *)
@@ -69,10 +74,6 @@ module mkFetchUnit#(
             pipelineEpoch: fetchEpoch,
             rawInstruction: fetchResponse.data
         });
-
-        if (!pipelined) begin
-            fetchEnabled <= False;
-        end
     endrule
 
     interface Get getEncodedInstruction = fifoToGet(outputQueue);

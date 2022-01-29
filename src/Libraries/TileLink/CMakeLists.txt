@@ -1,1 +1,4 @@
-add_bsv_module_dir("${CMAKE_CURRENT_SOURCE_DIR}")
+add_library(TileLink INTERFACE)
+add_library(TileLink::TileLink ALIAS TileLink)
+
+target_include_directories(TileLink INTERFACE "${RECYCLE_BSV_LIB_DIR}")

@@ -39,9 +39,9 @@ module mkExecutionUnit#(
     (* fire_when_enabled *)
     rule execute;
         let decodedInstruction = inputQueue.first();
-        let stageEpoch = pipelineController.stageEpoch(stageNumber);
+        let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, decodedInstruction.epoch)) begin
+        if (!pipelineController.isCurrentEpoch(stageNumber, 1, decodedInstruction.epoch)) begin
             $display("%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", csrFile.cycle_counter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch[1]);
             inputQueue.deq();
         end else begin
@@ -68,7 +68,7 @@ module mkExecutionUnit#(
 
             // If the program counter was changed.
             if (isValid(executedInstruction.changedProgramCounter)) begin
-                pipelineController.flush1();
+                pipelineController.flush(1);
 
                 // Bump the current instruction epoch
                 executedInstruction.epoch = executedInstruction.epoch + 1;

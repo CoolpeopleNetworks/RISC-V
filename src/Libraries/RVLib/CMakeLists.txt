@@ -1,3 +1,7 @@
-add_bsv_module_dir("${CMAKE_CURRENT_SOURCE_DIR}")
-
 add_subdirectory(CSR)
+
+add_library(RVLib INTERFACE)
+add_library(RVLib::RVLib ALIAS RVLib)
+
+target_include_directories(RVLib INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(RVLib INTERFACE RVLibCSR)

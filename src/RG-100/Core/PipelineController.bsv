@@ -2,10 +2,9 @@ import RVTypes::*;
 import Vector::*;
 
 interface PipelineController;
-    method PipelineEpoch stageEpoch(Integer index);
-    method Bool isCurrentEpoch(Integer stageIndex, PipelineEpoch check);
-    method Action flush0;
-    method Action flush1;
+    method PipelineEpoch stageEpoch(Integer stageIndex, Integer portNumber);
+    method Bool isCurrentEpoch(Integer stageIndex, Integer portNumber, PipelineEpoch check);
+    method Action flush(Integer portNumber);
 endinterface
 
 module mkPipelineController#(
@@ -13,23 +12,17 @@ module mkPipelineController#(
 )(PipelineController);
     Vector#(10, Array#(Reg#(PipelineEpoch))) stageEpochs <- replicateM(mkCReg(3, 0));
 
-    method PipelineEpoch stageEpoch(Integer index);
-        return stageEpochs[index][2];
+    method PipelineEpoch stageEpoch(Integer stageIndex, Integer portNumber);
+        return stageEpochs[stageIndex][portNumber];
     endmethod
 
-    method Bool isCurrentEpoch(Integer stageIndex, PipelineEpoch check);
-        return (check == stageEpochs[stageIndex][2]);
+    method Bool isCurrentEpoch(Integer stageIndex, Integer portNumber, PipelineEpoch check);
+        return (check == stageEpochs[stageIndex][portNumber]);
     endmethod
 
-    method Action flush0;
+    method Action flush(Integer portNumber);
         for (Integer i = 0; i < stageCount; i = i + 1) begin
-            stageEpochs[i][0] <= stageEpochs[i][0] + 1; 
-        end
-    endmethod
-
-    method Action flush1;
-        for (Integer i = 0; i < stageCount; i = i + 1) begin
-            stageEpochs[i][1] <= stageEpochs[i][1] + 1; 
+            stageEpochs[i][portNumber] <= stageEpochs[i][portNumber] + 1; 
         end
     endmethod
 endmodule

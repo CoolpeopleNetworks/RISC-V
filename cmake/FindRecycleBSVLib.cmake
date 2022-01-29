@@ -27,4 +27,7 @@ Find_File(RECYCLE_BSV_LIB_DIR
 
 get_filename_component(RECYCLE_BSV_LIB_DIR ${RECYCLE_BSV_LIB_DIR} DIRECTORY)
 
-add_bsv_module_dir("${RECYCLE_BSV_LIB_DIR}")
+add_library(RecycleBSVLib INTERFACE)
+add_library(RecycleBSVLib::RecycleBSVLib ALIAS RecycleBSVLib)
+
+target_include_directories(RecycleBSVLib INTERFACE "${RECYCLE_BSV_LIB_DIR}")

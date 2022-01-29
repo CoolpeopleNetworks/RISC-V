@@ -52,8 +52,7 @@ module mkRG100Core#(
         ProgramCounter initialProgramCounter,
         InstructionMemory instructionMemory,
         DataMemory dataMemory,
-        Word64 cLimit,
-        Bool pipelined
+        Word64 cLimit
 )(RG100Core);
     //
     // Cycle Limit (Debugging)
@@ -104,13 +103,14 @@ module mkRG100Core#(
     // Stage 1 - Instruction fetch
     //
     ProgramCounterRedirect programCounterRedirect <- mkProgramCounterRedirect;
+    Reg#(Bool) fetchEnabled <- mkReg(True);
     FetchUnit fetchUnit <- mkFetchUnit(
         cycleCounter,
         1,  // stage number
         initialProgramCounter,
         programCounterRedirect,
         instructionMemory,
-        pipelined
+        fetchEnabled
     );
 
     //
@@ -137,7 +137,7 @@ module mkRG100Core#(
         csrFile,
         halt
     );
-//    mkConnection(decodeUnit.getDecodedInstruction, executionUnit.putDecodedInstruction);
+    mkConnection(decodeUnit.getDecodedInstruction, executionUnit.putDecodedInstruction);
 
     //
     // Stage 4 - Memory access
@@ -148,12 +148,11 @@ module mkRG100Core#(
         pipelineController,
         dataMemory
     );
-//    mkConnection(executionUnit.getExecutedInstruction, memoryAccessUnit.putExecutedInstruction);
+    mkConnection(executionUnit.getExecutedInstruction, memoryAccessUnit.putExecutedInstruction);
 
     // 
     // Stage 5 - Register Writeback
     //
-    Reg#(Bool) instructionRetired <- mkReg(False);
     WritebackUnit writebackUnit <- mkWritebackUnit(
         cycleCounter,
         5,
@@ -161,11 +160,19 @@ module mkRG100Core#(
         programCounterRedirect,
         registerFile,
         csrFile,
-        currentPrivilegeLevel,
-        instructionRetired,
-        pipelined
+        currentPrivilegeLevel
     );
-//    mkConnection(memoryAccessUnit.getMemoryAccessedInstruction, writebackUnit.putMemoryAccessedInstruction);
+    mkConnection(memoryAccessUnit.getMemoryAccessedInstruction, writebackUnit.putMemoryAccessedInstruction);
+
+`ifndef PIPELINED
+    (* fire_when_enabled, no_implicit_conditions *)
+    rule nonPipelinedMode;
+        let wasRetired <- writebackUnit.wasInstructionRetired;
+        if (wasRetired) begin
+            fetchEnabled <= True;
+        end
+    endrule
+`endif
 
     (* fire_when_enabled, no_implicit_conditions *)
     rule incrementCycleCounter;

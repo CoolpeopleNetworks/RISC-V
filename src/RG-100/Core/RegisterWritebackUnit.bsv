@@ -25,21 +25,21 @@ module mkWritebackUnit#(
     ProgramCounterRedirect programCounterRedirect,
     RVRegisterFile registerFile,
     RVCSRFile csrFile,
-    Reg#(PrivilegeLevel) currentPrivilegeLevel,
-    Reg#(Bool) instructionRetired,
-    Bool pipelined
+    Reg#(PrivilegeLevel) currentPrivilegeLevel
 )(WritebackUnit);
     FIFO#(ExecutedInstruction) inputQueue <- mkPipelineFIFO();
+    Reg#(Bool) instructionRetired <- mkReg(False);
 
     (* fire_when_enabled *)
     rule writeBack;
         let memoryAccessCompleteInstruction = inputQueue.first();
-        let stageEpoch = pipelineController.stageEpoch(stageNumber);
+        let stageEpoch = pipelineController.stageEpoch(stageNumber, 0);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, memoryAccessCompleteInstruction.epoch)) begin
+        if (!pipelineController.isCurrentEpoch(stageNumber, 0, memoryAccessCompleteInstruction.epoch)) begin
             $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", cycleCounter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
             inputQueue.deq();
         end else begin
+            inputQueue.deq();
             if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
                 $display("%0d,%0d,%0d,%0d,writeback,writing result ($%08x) to register x%0d", cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber, wb.value, wb.rd);
                 registerFile.write(wb.rd, wb.value);
@@ -49,7 +49,7 @@ module mkWritebackUnit#(
 
             // Handle any exceptions
             if (memoryAccessCompleteInstruction.exception matches tagged Valid .exception) begin
-                pipelineController.flush0();
+                pipelineController.flush(0);
 
                 let exceptionVector <- csrFile.beginException(currentPrivilegeLevel, exception.cause);
                 programCounterRedirect.exception(exceptionVector); 
@@ -60,8 +60,6 @@ module mkWritebackUnit#(
             $display("%0d,%0d,%0d,%0d,writeback,---------------------------", cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber);
             csrFile.increment_instructions_retired_counter();
         end
-
-        instructionRetired <= True;
     endrule
 
     interface Put putMemoryAccessedInstruction = fifoToPut(inputQueue);

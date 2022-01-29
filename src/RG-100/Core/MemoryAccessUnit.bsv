@@ -27,15 +27,14 @@ module mkMemoryAccessUnit#(
     (* fire_when_enabled *)
     rule memoryAccess;
         let executedInstruction = inputQueue.first();
-        let stageEpoch = pipelineController.stageEpoch(stageNumber);
+        let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, executedInstruction.epoch)) begin
+        if (!pipelineController.isCurrentEpoch(stageNumber, 1, executedInstruction.epoch)) begin
             $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", cycleCounter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
             inputQueue.deq();
         end else begin
-            let currentEpoch = pipelineController.stageEpoch(stageNumber);
             if(executedInstruction.loadRequest matches tagged Valid .load) begin
-                $display("%0d,%0d,%0d,%0d,memory access,LOAD", cycleCounter, currentEpoch, executedInstruction.programCounter, stageNumber);
+                $display("%0d,%0d,%0d,%0d,memory access,LOAD", cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
                 // See if a load request has completed
                 if (waitingForLoadToComplete) begin
                     // if (dataMemory.isLoadReady()) begin
@@ -77,7 +76,7 @@ module mkMemoryAccessUnit#(
                 end
             end else begin
                 // Not a LOAD/STORE
-                $display("%0d,%0d,%0d,%0d,memory access,NO-OP", cycleCounter, currentEpoch, executedInstruction.programCounter, stageNumber);
+                $display("%0d,%0d,%0d,%0d,memory access,NO-OP", cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
 
                 inputQueue.deq();
                 outputQueue.enq(executedInstruction);
