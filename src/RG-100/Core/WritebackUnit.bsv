@@ -8,6 +8,7 @@ import ProgramCounterRedirect::*;
 import RVRegisterFile::*;
 import RVCSRFile::*;
 
+import DReg::*;
 import GetPut::*;
 import FIFO::*;
 import SpecialFIFOs::*;
@@ -16,6 +17,7 @@ export WritebackUnit(..), mkWritebackUnit;
 
 interface WritebackUnit;
     interface Put#(ExecutedInstruction) putMemoryAccessedInstruction;
+    method Bool wasInstructionRetired;
 endinterface
 
 module mkWritebackUnit#(
@@ -28,7 +30,7 @@ module mkWritebackUnit#(
     Reg#(PrivilegeLevel) currentPrivilegeLevel
 )(WritebackUnit);
     FIFO#(ExecutedInstruction) inputQueue <- mkPipelineFIFO();
-    Reg#(Bool) instructionRetired <- mkReg(False);
+    Reg#(Bool) instructionRetired <- mkDReg(False);
 
     (* fire_when_enabled *)
     rule writeBack;
@@ -59,8 +61,13 @@ module mkWritebackUnit#(
             end
             $display("%0d,%0d,%0d,%0d,writeback,---------------------------", cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber);
             csrFile.increment_instructions_retired_counter();
+            instructionRetired <= True;
         end
     endrule
 
     interface Put putMemoryAccessedInstruction = fifoToPut(inputQueue);
+
+    method Bool wasInstructionRetired;
+        return instructionRetired;
+    endmethod
 endmodule

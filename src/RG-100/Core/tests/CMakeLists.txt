@@ -14,6 +14,5 @@ target_link_libraries(CoreTest
 
 target_compile_definitions(CoreTest PUBLIC
     RV32
+    DISABLE_PIPELINING
 )
-
-#add_bsim_testbench(InstructionDecoderTests InstructionDecoderTests.bsv)

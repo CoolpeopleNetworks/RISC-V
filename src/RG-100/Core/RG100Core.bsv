@@ -12,7 +12,7 @@ import FetchUnit::*;
 import DecodeUnit::*;
 import ExecutionUnit::*;
 import MemoryAccessUnit::*;
-import RegisterWritebackUnit::*;
+import WritebackUnit::*;
 
 import Scoreboard::*;
 
@@ -51,14 +51,11 @@ typedef struct {
 module mkRG100Core#(
         ProgramCounter initialProgramCounter,
         InstructionMemory instructionMemory,
-        DataMemory dataMemory,
-        Word64 cLimit
+        DataMemory dataMemory
 )(RG100Core);
     //
-    // Cycle Limit (Debugging)
+    // Cycle counter
     //
-    Reg#(Word64) cycleLimit <- mkReg(cLimit);  // 0 = no limit
-
     Reg#(Word64) cycleCounter <- mkReg(0);
 
     //
@@ -164,23 +161,20 @@ module mkRG100Core#(
     );
     mkConnection(memoryAccessUnit.getMemoryAccessedInstruction, writebackUnit.putMemoryAccessedInstruction);
 
-`ifdef UNPIPELINED
+`ifdef DISABLE_PIPELINING
     (* fire_when_enabled, no_implicit_conditions *)
     rule nonPipelinedMode;
-        let wasRetired <- writebackUnit.wasInstructionRetired;
+        let wasRetired = writebackUnit.wasInstructionRetired;
         if (wasRetired) begin
             fetchEnabled <= True;
+        end else begin
+            fetchEnabled <= False;
         end
     endrule
 `endif
 
     (* fire_when_enabled, no_implicit_conditions *)
     rule incrementCycleCounter;
-        if (cycleLimit > 0 && csrFile.cycle_counter > cycleLimit) begin
-            $display("%0d,%0d,%0d,cycleCounter,Cycle limit reached...exitting.", csrFile.cycle_counter, 1000000000, 1000000000);
-            halt <= True;
-        end
-
         cycleCounter <= cycleCounter + 1;
         csrFile.increment_cycle_counter();
     endrule
