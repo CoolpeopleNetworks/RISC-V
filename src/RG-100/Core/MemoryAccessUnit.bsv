@@ -10,17 +10,16 @@ import SpecialFIFOs::*;
 export MemoryAccessUnit(..), mkMemoryAccessUnit;
 
 interface MemoryAccessUnit;
-    interface Put#(ExecutedInstruction) putExecutedInstruction;
-    interface Get#(ExecutedInstruction) getMemoryAccessedInstruction;
+    interface FIFO#(ExecutedInstruction) getMemoryAccessedInstructionQueue;
 endinterface
 
 module mkMemoryAccessUnit#(
     Reg#(Word64) cycleCounter,
     Integer stageNumber,
     PipelineController pipelineController,
+    FIFO#(ExecutedInstruction) inputQueue,
     DataMemory dataMemory
 )(MemoryAccessUnit);
-    FIFO#(ExecutedInstruction) inputQueue <- mkPipelineFIFO();
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
 
@@ -84,6 +83,5 @@ module mkMemoryAccessUnit#(
         end
     endrule
 
-    interface Put putExecutedInstruction = fifoToPut(inputQueue);
-    interface Get getMemoryAccessedInstruction = fifoToGet(outputQueue);
+    interface FIFO getMemoryAccessedInstructionQueue = outputQueue;
 endmodule

@@ -16,7 +16,6 @@ import SpecialFIFOs::*;
 export WritebackUnit(..), mkWritebackUnit;
 
 interface WritebackUnit;
-    interface Put#(ExecutedInstruction) putMemoryAccessedInstruction;
     method Bool wasInstructionRetired;
 endinterface
 
@@ -24,12 +23,12 @@ module mkWritebackUnit#(
     Reg#(Word64) cycleCounter,
     Integer stageNumber,
     PipelineController pipelineController,
+    FIFO#(ExecutedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
     RVRegisterFile registerFile,
     RVCSRFile csrFile,
     Reg#(PrivilegeLevel) currentPrivilegeLevel
 )(WritebackUnit);
-    FIFO#(ExecutedInstruction) inputQueue <- mkPipelineFIFO();
     Reg#(Bool) instructionRetired <- mkDReg(False);
 
     (* fire_when_enabled *)
@@ -64,8 +63,6 @@ module mkWritebackUnit#(
             instructionRetired <= True;
         end
     endrule
-
-    interface Put putMemoryAccessedInstruction = fifoToPut(inputQueue);
 
     method Bool wasInstructionRetired;
         return instructionRetired;

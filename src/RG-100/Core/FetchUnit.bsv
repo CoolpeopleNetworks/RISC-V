@@ -10,7 +10,7 @@ import EncodedInstruction::*;
 export mkFetchUnit, FetchUnit(..);
 
 interface FetchUnit;
-    interface Get#(EncodedInstruction) getEncodedInstruction;
+    interface FIFO#(EncodedInstruction) getEncodedInstructionQueue;
 endinterface
 
 module mkFetchUnit#(
@@ -41,10 +41,10 @@ module mkFetchUnit#(
             fetchEpoch = fetchEpoch + 1;
             currentEpoch <= fetchEpoch;
 
-            $display("%0d,%0d,%0d,%0d,fetch,redirected PC: $%08x", cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
+            $display("%0d,%0d,%0d,%0d,fetch send,redirected PC: $%08x", cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
         end
 
-        $display("%0d,%0d,%0d,%0d,fetch,fetching instruction", cycleCounter, fetchEpoch, programCounter, stageNumber);
+        $display("%0d,%0d,%0d,%0d,fetch send,fetching instruction", cycleCounter, fetchEpoch, programCounter, stageNumber);
 
         instructionMemory.request(InstructionMemoryRequest {
             address: fetchProgramCounter
@@ -62,6 +62,8 @@ module mkFetchUnit#(
         let fetchEpoch = instructionEpoch.first();
         instructionEpoch.deq();
 
+        $display("%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", cycleCounter, fetchEpoch, programCounter, stageNumber, fetchResponse.address);
+
         // Tell the decode stage what the program counter for the insruction it'll receive.
         outputQueue.enq(EncodedInstruction {
             programCounter: fetchResponse.address,
@@ -70,6 +72,6 @@ module mkFetchUnit#(
         });
     endrule
 
-    interface Get getEncodedInstruction = fifoToGet(outputQueue);
+    interface FIFO getEncodedInstructionQueue = outputQueue;
 
 endmodule

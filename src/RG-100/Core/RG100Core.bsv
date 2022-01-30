@@ -117,10 +117,10 @@ module mkRG100Core#(
         cycleCounter,
         2,  // stage number
         pipelineController,
+        fetchUnit.getEncodedInstructionQueue,
         scoreboard,
         registerFile
     );
-    mkConnection(fetchUnit.getEncodedInstruction, decodeUnit.putEncodedInstruction);
 
     //
     // Stage 3 - Instruction execution
@@ -129,12 +129,12 @@ module mkRG100Core#(
         cycleCounter,
         3,  // stage number
         pipelineController,
+        decodeUnit.getDecodedInstructionQueue,
         programCounterRedirect,
         scoreboard,
         csrFile,
         halt
     );
-    mkConnection(decodeUnit.getDecodedInstruction, executionUnit.putDecodedInstruction);
 
     //
     // Stage 4 - Memory access
@@ -143,9 +143,9 @@ module mkRG100Core#(
         cycleCounter,
         4,
         pipelineController,
+        executionUnit.getExecutedInstructionQueue,
         dataMemory
     );
-    mkConnection(executionUnit.getExecutedInstruction, memoryAccessUnit.putExecutedInstruction);
 
     // 
     // Stage 5 - Register Writeback
@@ -154,12 +154,12 @@ module mkRG100Core#(
         cycleCounter,
         5,
         pipelineController,
+        memoryAccessUnit.getMemoryAccessedInstructionQueue,
         programCounterRedirect,
         registerFile,
         csrFile,
         currentPrivilegeLevel
     );
-    mkConnection(memoryAccessUnit.getMemoryAccessedInstruction, writebackUnit.putMemoryAccessedInstruction);
 
 `ifdef DISABLE_PIPELINING
     (* fire_when_enabled, no_implicit_conditions *)

@@ -18,20 +18,19 @@ import SpecialFIFOs::*;
 export ExecutionUnit(..), mkExecutionUnit;
 
 interface ExecutionUnit;
-    interface Put#(DecodedInstruction) putDecodedInstruction;
-    interface Get#(ExecutedInstruction) getExecutedInstruction;
+    interface FIFO#(ExecutedInstruction) getExecutedInstructionQueue;
 endinterface
 
 module mkExecutionUnit#(
     Reg#(Word64) cycleCounter,
     Integer stageNumber,
     PipelineController pipelineController,
+    FIFO#(DecodedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
     Scoreboard#(4) scoreboard,
     RVCSRFile csrFile,
     Reg#(Bool) halt
 )(ExecutionUnit);
-    FIFO#(DecodedInstruction) inputQueue <- mkPipelineFIFO();
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();
 
     InstructionExecutor instructionExecutor <- mkInstructionExecutor(csrFile);
@@ -97,6 +96,5 @@ module mkExecutionUnit#(
         end
     endrule
 
-    interface Put putDecodedInstruction = fifoToPut(inputQueue);
-    interface Get getExecutedInstruction = fifoToGet(outputQueue);
+    interface FIFO getExecutedInstructionQueue = outputQueue;
 endmodule

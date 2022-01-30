@@ -14,18 +14,17 @@ import SpecialFIFOs::*;
 export DecodeUnit(..), mkDecodeUnit;
 
 interface DecodeUnit;
-    interface Put#(EncodedInstruction) putEncodedInstruction;
-    interface Get#(DecodedInstruction) getDecodedInstruction;
+    interface FIFO#(DecodedInstruction) getDecodedInstructionQueue;
 endinterface
 
 module mkDecodeUnit#(
     Reg#(Word64) cycleCounter,
     Integer stageNumber,
     PipelineController pipelineController,
+    FIFO#(EncodedInstruction) inputQueue,
     Scoreboard#(4) scoreboard,
     RVRegisterFile registerFile
 )(DecodeUnit);
-    FIFO#(EncodedInstruction) inputQueue <- mkPipelineFIFO();
     FIFO#(DecodedInstruction) outputQueue <- mkPipelineFIFO();
 
     function Bool isValidLoadInstruction(Bit#(3) func3);
@@ -286,6 +285,5 @@ module mkDecodeUnit#(
         end
     endrule
 
-    interface Put putEncodedInstruction = fifoToPut(inputQueue);
-    interface Get getDecodedInstruction = fifoToGet(outputQueue);
+    interface FIFO getDecodedInstructionQueue = outputQueue;
 endmodule
