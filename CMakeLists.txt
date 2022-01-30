@@ -3,9 +3,6 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 enable_testing()
 
-include(BSV)
+project(RISC-V BSV)
 
-project(RISC-V)
-
-set(BSC_DEFINES -D RV32)
 add_subdirectory(src)

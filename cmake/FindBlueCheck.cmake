@@ -27,4 +27,7 @@ Find_File(BLUECHECK_LIB_DIR
 
 get_filename_component(BLUECHECK_LIB_DIR ${BLUECHECK_LIB_DIR} DIRECTORY)
 
-add_bsv_module_dir("${BLUECHECK_LIB_DIR}")
+add_library(BlueCheck INTERFACE)
+add_library(BlueCheck::BlueCheck ALIAS BlueCheck)
+
+target_include_directories(BlueCheck INTERFACE "${BLUECHECK_LIB_DIR}")

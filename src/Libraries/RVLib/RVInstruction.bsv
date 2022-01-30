@@ -1,5 +1,4 @@
 import RVTypes::*;
-import RVALU::*;
 
 typedef enum {
     ALU,
@@ -14,6 +13,31 @@ typedef enum {
 } RVOpcode deriving(Bits, Eq, FShow);
 
 typedef Bit#(3) Func3;  // Corresponds to the func3 instruction field.
+
+typedef Bit#(10) RVALUOperator;
+typedef enum {  // NOTE: These are decoded as the concat of func7 and func3
+    ADD    = 10'b0000000000,
+    SLL    = 10'b0000000001,
+    SLT    = 10'b0000000010, 
+    SLTU   = 10'b0000000011, 
+    XOR    = 10'b0000000100,
+    SRL    = 10'b0000000101,
+    OR     = 10'b0000000110,
+    AND    = 10'b0000000111,
+`ifdef ISA_M
+    MUL    = 10'b0000001000,
+    MULH   = 10'b0000001001,
+    MULHSU = 10'b0000001010,
+    MULHU  = 10'b0000001011,
+    DIV    = 10'b0000001100,
+    DIVU   = 10'b0000001101,
+    REM    = 10'b0000001110,
+    REMU   = 10'b0000001111,
+`endif
+    SUB    = 10'b0100000000,
+    SRA    = 10'b0100000101,
+    UNSUPPORTED_ALU_OPERATOR = 10'b1111111111
+} RVALUOperators deriving(Bits, Eq, FShow);
 
 typedef Func3 RVBranchOperator;
 typedef enum {

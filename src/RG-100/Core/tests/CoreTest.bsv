@@ -1,3 +1,5 @@
+//`define PIPELINED
+
 import RegFile::*;
 import RVTypes::*;
 import MemUtil::*;
@@ -9,8 +11,6 @@ import DataMemory::*;
 import Port::*;
 import MemUtil::*;
 import FIFO::*;
-
-import CacheController::*;
 
 (* synthesize *)
 module mkInstructionMemory(InstructionMemory);
@@ -77,5 +77,5 @@ module mkCoreTest(Empty);
     DataMemory dataMemory <- mkDataMemory();
 
     // Core
-    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory, 200, True);
+    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory);
 endmodule
