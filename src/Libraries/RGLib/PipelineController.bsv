@@ -1,5 +1,5 @@
 import RVTypes::*;
-import Vector::*;
+import List::*;
 
 interface PipelineController;
     method PipelineEpoch stageEpoch(Integer stageIndex, Integer portNumber);
@@ -10,8 +10,8 @@ endinterface
 module mkPipelineController#(
     Integer stageCount
 )(PipelineController);
-    Vector#(10, Array#(Reg#(PipelineEpoch))) stageEpochs <- replicateM(mkCReg(3, 0));
-
+    List#(Array#(Reg#(PipelineEpoch))) stageEpochs <- replicateM(stageCount, mkCReg(3, 0));
+ 
     method PipelineEpoch stageEpoch(Integer stageIndex, Integer portNumber);
         return stageEpochs[stageIndex][portNumber];
     endmethod
