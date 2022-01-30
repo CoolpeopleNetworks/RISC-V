@@ -8,6 +8,7 @@ typedef struct {
 } WriteBack deriving(Bits, Eq, FShow);
 
 typedef struct {
+    RegisterIndex rd;
     Word effectiveAddress;
     RVLoadOperator operator;
 } LoadRequest deriving(Bits, Eq, FShow);

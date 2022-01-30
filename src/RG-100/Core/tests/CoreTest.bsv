@@ -54,10 +54,6 @@ module mkDataMemory(DataMemory);
         });
     endmethod
 
-    method Bool isLoadReady;
-        return dataMemory.portA.response.canDeq();
-    endmethod
-
     method Word first;
         return dataMemory.portA.response.first().data();
     endmethod

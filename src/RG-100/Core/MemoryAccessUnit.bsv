@@ -1,11 +1,14 @@
 import RVTypes::*;
+
 import EncodedInstruction::*;
 import PipelineController::*;
 import ExecutedInstruction::*;
 import DataMemory::*;
+
 import GetPut::*;
 import FIFO::*;
 import SpecialFIFOs::*;
+import Assert::*;
 
 export MemoryAccessUnit(..), mkMemoryAccessUnit;
 
@@ -22,9 +25,10 @@ module mkMemoryAccessUnit#(
 )(MemoryAccessUnit);
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
+    Reg#(ExecutedInstruction) instructionWaitingForLoad <- mkRegU();
 
     (* fire_when_enabled *)
-    rule memoryAccess;
+    rule memoryAccess(waitingForLoadToComplete == False);
         let executedInstruction = inputQueue.first();
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
@@ -32,46 +36,15 @@ module mkMemoryAccessUnit#(
             $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", cycleCounter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
             inputQueue.deq();
         end else begin
-            if(executedInstruction.loadRequest matches tagged Valid .load) begin
+            if(executedInstruction.loadRequest matches tagged Valid .loadRequest) begin
                 $display("%0d,%0d,%0d,%0d,memory access,LOAD", cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
-                // See if a load request has completed
-                if (waitingForLoadToComplete) begin
-                    // if (dataMemory.isLoadReady()) begin
-                    //     waitingForLoadToComplete <= False;
-                    //     $display("[%0d:%08x:memory] Load completed", cycleCounter, executedInstruction.decodedInstruction.programCounter);
-
-                    //     let memoryResponse = dataMemory.first();
-                    //     dataMemory.deq();
-
-                    //     // Save the data that will be written back into the register file on the
-                    //     // writeback pipeline stage.
-                    //     executedInstruction.writeBack = tagged Valid Writeback {
-                    //         rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
-                    //         value: memoryResponse
-                    //     };
-
-                    //     // Forward the received data
-                    //     memoryAccessStageForward.wset(RVOperandForward{
-                    //         rd: executedInstruction.decodedInstruction.specific.LoadInstruction.rd,
-                    //         value: tagged Valid memoryResponse
-                    //     });
-
-                    //     executedInstructionQueue.deq();
-                    //     memoryAccessCompletedQueue.enq(executedInstruction);
-                    // end
-                end else begin
+                begin
                     // NOTE: Alignment checks were already performed during the execution stage.
-                    // dataMemory.request(loadStore.effectiveAddress, loadStore.storeValue, loadStore.writeEnable);
+                    dataMemory.request(loadRequest.effectiveAddress, ?, 0);
 
-                    // if (loadStore.writeEnable == 0) begin
-                    //     $display("[%0d:%08x:memory] Executing LOAD", cycleCounter, executedInstruction.decodedInstruction.programCounter);
-                    //     waitingForLoadToComplete <= True;
-                    // end else begin
-                    //     // Instruction was a store, no need to wait for a response.
-                    //     $display("[%0d:%08x:memory] Executing STORE", cycleCounter, executedInstruction.decodedInstruction.programCounter);
-                    //     executedInstructionQueue.deq();
-                    //     memoryAccessCompletedQueue.enq(executedInstruction);
-                    // end
+                    $display("%0d,%0d,%0d,%0d,memory access, Loading from $%08x", cycleCounter, executedInstruction.programCounter, loadRequest.effectiveAddress);
+                    instructionWaitingForLoad <= executedInstruction;
+                    waitingForLoadToComplete <= True;
                 end
             end else begin
                 // Not a LOAD/STORE
@@ -81,6 +54,28 @@ module mkMemoryAccessUnit#(
                 outputQueue.enq(executedInstruction);
             end
         end
+    endrule
+
+    rule handleLoadResponse(waitingForLoadToComplete == True);
+        let memoryResponse = dataMemory.first();
+        dataMemory.deq();
+
+        let executedInstruction = instructionWaitingForLoad;
+
+        $display("[%0d:****:memory] Load completed", cycleCounter, executedInstruction.programCounter);
+
+        waitingForLoadToComplete <= False;
+
+        // Save the data that will be written back into the register file on the
+        // writeback pipeline stage.
+        let loadRequest = unJust(executedInstruction.loadRequest);
+        executedInstruction.writeBack = tagged Valid WriteBack {
+            rd: loadRequest.rd,
+            value: memoryResponse
+        };
+
+        inputQueue.deq();
+        outputQueue.enq(executedInstruction);
     endrule
 
     interface FIFO getMemoryAccessedInstructionQueue = outputQueue;

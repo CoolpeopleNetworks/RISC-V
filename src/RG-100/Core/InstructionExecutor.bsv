@@ -66,9 +66,9 @@ module mkInstructionExecutor#(
 `endif
     endfunction
 
-    function ProgramCounter getAdjustedProgramCounter(ProgramCounter programCounter, Word unsignedValue);
-        Int#(XLEN) offset = unpack(unsignedValue);
-        return pack(unpack(programCounter) + offset);
+    function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);
+        Int#(XLEN) offset = unpack(signedOffset);
+        return pack(unpack(base) + offset);
     endfunction
 
     method ActionValue#(ExecutedInstruction) executeInstruction(DecodedInstruction decodedInstruction);
@@ -115,7 +115,7 @@ module mkInstructionExecutor#(
                     if (isBranchTaken(decodedInstruction)) begin
                         // Determine branch target address and check
                         // for address misalignment.
-                        let branchTarget = getAdjustedProgramCounter(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
+                        let branchTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
                         // Branch target must be 32 bit aligned.
                         if (branchTarget[1:0] != 0) begin
                             executedInstruction.exception = tagged Valid RVException {
@@ -150,7 +150,7 @@ module mkInstructionExecutor#(
                 dynamicAssert(isValid(decodedInstruction.rs2) == False, "JUMP: rs2 SHOULD BE invalid");
                 dynamicAssert(isValid(decodedInstruction.immediate), "JUMP: immediate is invalid");
                 
-                let jumpTarget = getAdjustedProgramCounter(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
+                let jumpTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
                 if (jumpTarget[1:0] != 0) begin
                     executedInstruction.exception = tagged Valid RVException {
                         cause: INSTRUCTION_ADDRESS_MISALIGNED
@@ -171,7 +171,7 @@ module mkInstructionExecutor#(
                 dynamicAssert(isValid(decodedInstruction.rs2) == False, "JUMP_INDIRECT: rs2 SHOULD BE invalid");
                 dynamicAssert(isValid(decodedInstruction.immediate), "JUMP_INDIRECT: immediate is invalid");
                 
-                let jumpTarget = getAdjustedProgramCounter(decodedInstruction.rs1Value, fromMaybe(?, decodedInstruction.immediate));
+                let jumpTarget = getEffectiveAddress(decodedInstruction.rs1Value, fromMaybe(?, decodedInstruction.immediate));
                 jumpTarget[0] = 0;
 
                 if (jumpTarget[1:0] != 0) begin
@@ -198,6 +198,11 @@ module mkInstructionExecutor#(
 
                 if (isValidLoadOperator(decodedInstruction.loadOperator)) begin
                     executedInstruction.exception = tagged Invalid;
+                    executedInstruction.loadRequest = tagged Valid LoadRequest {
+                        rd: unJust(decodedInstruction.rd),
+                        effectiveAddress: getEffectiveAddress(decodedInstruction.rs1Value, unJust(decodedInstruction.immediate)),
+                        operator: decodedInstruction.loadOperator
+                    };
                 end
             end
 
