@@ -9,6 +9,7 @@ target_link_libraries(CoreTest
     Memory::Memory
     RG100Core::RG100Core
     RVLib::RVLib
+    RGLib::RGLib
     RecycleBSVLib::RecycleBSVLib
 )
 

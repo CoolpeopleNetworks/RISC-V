@@ -1,14 +1,13 @@
 import RVTypes::*;
+
 import EncodedInstruction::*;
 import DecodedInstruction::*;
-import Scoreboard::*;
 import PipelineController::*;
+import RegisterFile::*;
+import Scoreboard::*;
 
-import RVRegisterFile::*;
-import RVInstruction::*;
-
-import GetPut::*;
 import FIFO::*;
+import GetPut::*;
 import SpecialFIFOs::*;
 
 export DecodeUnit(..), mkDecodeUnit;
@@ -23,7 +22,7 @@ module mkDecodeUnit#(
     PipelineController pipelineController,
     FIFO#(EncodedInstruction) inputQueue,
     Scoreboard#(4) scoreboard,
-    RVRegisterFile registerFile
+    RegisterFile registerFile
 )(DecodeUnit);
     FIFO#(DecodedInstruction) outputQueue <- mkPipelineFIFO();
 

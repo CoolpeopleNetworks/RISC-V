@@ -1,16 +1,14 @@
 import RVTypes::*;
-import RVInstruction::*;
-import RVExceptions::*;
 
+import CSRFile::*;
 import ExecutedInstruction::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
-import RVRegisterFile::*;
-import RVCSRFile::*;
+import RegisterFile::*;
 
 import DReg::*;
-import GetPut::*;
 import FIFO::*;
+import GetPut::*;
 import SpecialFIFOs::*;
 
 export WritebackUnit(..), mkWritebackUnit;
@@ -25,8 +23,8 @@ module mkWritebackUnit#(
     PipelineController pipelineController,
     FIFO#(ExecutedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
-    RVRegisterFile registerFile,
-    RVCSRFile csrFile,
+    RegisterFile registerFile,
+    CSRFile csrFile,
     Reg#(PrivilegeLevel) currentPrivilegeLevel
 )(WritebackUnit);
     Reg#(Bool) instructionRetired <- mkDReg(False);

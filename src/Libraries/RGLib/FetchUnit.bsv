@@ -1,11 +1,12 @@
 import RVTypes::*;
+
+import EncodedInstruction::*;
 import InstructionMemory::*;
 import ProgramCounterRedirect::*;
 
-import GetPut::*;
 import FIFO::*;
+import GetPut::*;
 import SpecialFIFOs::*;
-import EncodedInstruction::*;
 
 export mkFetchUnit, FetchUnit(..);
 

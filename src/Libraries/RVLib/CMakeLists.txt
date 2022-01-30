@@ -1,5 +1,3 @@
-add_subdirectory(CSR)
-
 add_library(RVLib INTERFACE)
 add_library(RVLib::RVLib ALIAS RVLib)
 

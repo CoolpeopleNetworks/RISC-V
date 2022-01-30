@@ -1,7 +1,4 @@
 import RVTypes::*;
-import RVDecoder::*;
-
-export EncodedInstruction(..);
 
 typedef struct {
     ProgramCounter programCounter;

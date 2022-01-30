@@ -1,28 +1,21 @@
-import RVCSRFile::*;
-import RVRegisterFile::*;
-//import RVExecutor::*;
-import RVExceptions::*;
-import RVDecoder::*;
 import RVTypes::*;
-import RVInstruction::*;
 
-import ProgramCounterRedirect::*;
-import PipelineController::*;
-import FetchUnit::*;
+import CSRFile::*;
+import DataMemory::*;
 import DecodeUnit::*;
 import ExecutionUnit::*;
+import FetchUnit::*;
+import InstructionMemory::*;
 import MemoryAccessUnit::*;
-import WritebackUnit::*;
-
+import PipelineController::*;
+import ProgramCounterRedirect::*;
+import RegisterFile::*;
 import Scoreboard::*;
+import WritebackUnit::*;
 
 import FIFO::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
-import Connectable::*;
-
-import InstructionMemory::*;
-import DataMemory::*;
 
 // ================================================================
 // Exports
@@ -66,12 +59,12 @@ module mkRG100Core#(
     //
     // CSR (Control and Status Register) file
     //
-    RVCSRFile csrFile <- mkRVCSRFile();
+    CSRFile csrFile <- mkCSRFile();
 
     //
     // Register file
     //
-    RVRegisterFile registerFile <- mkRVRegisterFile();
+    RegisterFile registerFile <- mkRegisterFile();
 
     //
     // Scoreboard

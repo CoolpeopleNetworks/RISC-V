@@ -1,14 +1,14 @@
 import RVTypes::*;
 
-import EncodedInstruction::*;
-import PipelineController::*;
-import ExecutedInstruction::*;
 import DataMemory::*;
+import EncodedInstruction::*;
+import ExecutedInstruction::*;
+import PipelineController::*;
 
-import GetPut::*;
-import FIFO::*;
-import SpecialFIFOs::*;
 import Assert::*;
+import FIFO::*;
+import GetPut::*;
+import SpecialFIFOs::*;
 
 export MemoryAccessUnit(..), mkMemoryAccessUnit;
 

@@ -1,9 +1,7 @@
 import RVTypes::*;
-import RVALU::*;
-import RVCSRFile::*;
-import RVInstruction::*;
-import RVExceptions::*;
 
+import ALU::*;
+import CSRFile::*;
 import DecodedInstruction::*;
 import ExecutedInstruction::*;
 
@@ -16,9 +14,9 @@ interface InstructionExecutor;
 endinterface
 
 module mkInstructionExecutor#(
-    RVCSRFile csrFile
+    CSRFile csrFile
 )(InstructionExecutor);
-    RVALU alu <- mkRVALU();
+    ALU alu <- mkALU();
 
     function Bool isValidBranchOperator(RVBranchOperator operator);
         return (operator != pack(UNSUPPORTED_BRANCH_OPERATOR_010) &&

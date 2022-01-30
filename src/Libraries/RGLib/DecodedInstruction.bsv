@@ -1,11 +1,10 @@
 import RVTypes::*;
-import RVInstruction::*;
 
 typedef struct {
     PipelineEpoch epoch;
     RVOpcode opcode;
     ProgramCounter programCounter;
-    RVALUOperator aluOperator;
+    ALUOperator aluOperator;
     RVLoadOperator loadOperator;
     RVStoreOperator storeOperator;
     RVBranchOperator branchOperator;

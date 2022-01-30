@@ -1,9 +1,7 @@
 import RVTypes::*;
-import RVALU::*;
-import RVInstruction::*;
-import RVCSRFile::*;
-import RVExceptions::*;
 
+import ALU::*;
+import CSRFile::*;
 import DecodedInstruction::*;
 import ExecutedInstruction::*;
 import InstructionExecutor::*;
@@ -11,8 +9,8 @@ import PipelineController::*;
 import ProgramCounterRedirect::*;
 import Scoreboard::*;
 
-import GetPut::*;
 import FIFO::*;
+import GetPut::*;
 import SpecialFIFOs::*;
 
 export ExecutionUnit(..), mkExecutionUnit;
@@ -28,7 +26,7 @@ module mkExecutionUnit#(
     FIFO#(DecodedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
     Scoreboard#(4) scoreboard,
-    RVCSRFile csrFile,
+    CSRFile csrFile,
     Reg#(Bool) halt
 )(ExecutionUnit);
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();

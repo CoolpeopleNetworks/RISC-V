@@ -1,14 +1,14 @@
 import RVTypes::*;
 import Vector::*;
 
-interface RVRegisterFile;
+interface RegisterFile;
     method Word read1(RegisterIndex index);
     method Word read2(RegisterIndex index);
     method Action write(RegisterIndex index, Word value);
 endinterface
 
 (* synthesize *)
-module mkRVRegisterFile(RVRegisterFile);
+module mkRegisterFile(RegisterFile);
     Vector#(32, Array#(Reg#(Word))) registers <- replicateM(mkCReg(2, 0));
 
     method Word read1(RegisterIndex index);

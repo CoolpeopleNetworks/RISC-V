@@ -1,7 +1,6 @@
 import RegUtil::*;
 
 import RVTypes::*;
-import RVExceptions::*;
 
 import MachineInformation::*;
 import MachineStatus::*;
@@ -45,7 +44,7 @@ typedef enum {
     MCONFIGPTR      = 12'hF15     // Pointer to configuration data structure (MRO)
 } CSR deriving(Bits, Eq);
 
-interface RVCSRFile;
+interface CSRFile;
     // Generic read/write support
     method Maybe#(Word) read(PrivilegeLevel curPriv, CSRIndex index);
     method ActionValue#(Bool) write(PrivilegeLevel curPriv, CSRIndex index, Word value);
@@ -60,7 +59,7 @@ interface RVCSRFile;
     method Action increment_instructions_retired_counter;
 endinterface
 
-module mkRVCSRFile(RVCSRFile);
+module mkCSRFile(CSRFile);
 
     MachineInformation machineInformation <- mkMachineInformationRegisters(0, 0, 0, 0, 0);
     MachineStatus machineStatus <- mkMachineStatusRegister();

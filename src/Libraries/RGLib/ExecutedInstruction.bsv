@@ -1,6 +1,4 @@
 import RVTypes::*;
-import RVInstruction::*;
-import RVExceptions::*;
 
 typedef struct {
     RegisterIndex rd;
