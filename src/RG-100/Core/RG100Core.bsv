@@ -58,8 +58,6 @@ module mkRG100Core#(
     //
     Reg#(Word64) cycleCounter <- mkReg(0);
 
-    Reg#(Word64) cycleCounter <- mkReg(0);
-
     //
     // CPU Halt Flag
     //
