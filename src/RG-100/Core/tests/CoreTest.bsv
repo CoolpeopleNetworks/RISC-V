@@ -1,3 +1,5 @@
+//`define PIPELINED
+
 import RegFile::*;
 import RVTypes::*;
 import MemUtil::*;
@@ -8,23 +10,29 @@ import DataMemory::*;
 
 import Port::*;
 import MemUtil::*;
-
-import CacheController::*;
+import FIFO::*;
 
 (* synthesize *)
 module mkInstructionMemory(InstructionMemory);
     RegFile#(Word, Word) instructionRegisterFile <- mkRegFileFullLoad("./src/RG-100/Core/tests/CoreTest.txt");
     ReadOnlyMemServerPort#(32, 2) memory <- mkMemServerPortFromRegFile(instructionRegisterFile);
 
-    method Action request(Word address);
-        memory.request.enq(ReadOnlyMemReq{ addr: address });
+    FIFO#(Word) requestAddress <- mkFIFO();
+
+    method Action request(InstructionMemoryRequest r);
+        memory.request.enq(ReadOnlyMemReq{ addr: r.address });
+        requestAddress.enq(r.address);
     endmethod
 
-    method Word first;
-        return memory.response.first().data();
+    method InstructionMemoryResponse first;
+        return InstructionMemoryResponse {
+            address: requestAddress.first(),
+            data: memory.response.first().data()
+        };
     endmethod
 
     method Action deq;
+        requestAddress.deq();
         memory.response.deq();
     endmethod
 
@@ -69,5 +77,5 @@ module mkCoreTest(Empty);
     DataMemory dataMemory <- mkDataMemory();
 
     // Core
-    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory, 200, True);
+    RG100Core core <- mkRG100Core(0, instructionMemory, dataMemory);
 endmodule
