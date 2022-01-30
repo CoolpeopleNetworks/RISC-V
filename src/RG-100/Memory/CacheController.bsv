@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 import Vector::*;
 import BRAM::*;
 

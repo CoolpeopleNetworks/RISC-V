@@ -1,5 +1,7 @@
-import RVTypes::*;
+import RGTypes::*;
 import List::*;
+
+typedef Word PipelineEpoch;
 
 interface PipelineController;
     method PipelineEpoch stageEpoch(Integer stageIndex, Integer portNumber);

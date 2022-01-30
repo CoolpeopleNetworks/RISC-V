@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 
 import ALU::*;
 import CSRFile::*;
@@ -76,8 +76,9 @@ module mkInstructionExecutor#(
             changedProgramCounter: tagged Invalid,
             loadRequest: tagged Invalid,
             storeRequest: tagged Invalid,
-            exception: tagged Valid RVException {
-                cause: ILLEGAL_INSTRUCTION
+            exception: tagged Valid Exception {
+                isInterrupt: False,
+                cause: tagged Exception ILLEGAL_INSTRUCTION
             },
             writeBack: tagged Invalid
         };
@@ -116,8 +117,9 @@ module mkInstructionExecutor#(
                         let branchTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
                         // Branch target must be 32 bit aligned.
                         if (branchTarget[1:0] != 0) begin
-                            executedInstruction.exception = tagged Valid RVException {
-                                cause: INSTRUCTION_ADDRESS_MISALIGNED
+                            executedInstruction.exception = tagged Valid Exception {
+                                isInterrupt: False,
+                                cause: tagged Exception INSTRUCTION_ADDRESS_MISALIGNED
                             };
                         end else begin
                             // Target address aligned
@@ -150,8 +152,9 @@ module mkInstructionExecutor#(
                 
                 let jumpTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
                 if (jumpTarget[1:0] != 0) begin
-                    executedInstruction.exception = tagged Valid RVException {
-                        cause: INSTRUCTION_ADDRESS_MISALIGNED
+                    executedInstruction.exception = tagged Valid Exception {
+                        isInterrupt: False,
+                        cause: tagged Exception INSTRUCTION_ADDRESS_MISALIGNED
                     };
                 end else begin
                     executedInstruction.changedProgramCounter = tagged Valid jumpTarget;
@@ -173,8 +176,9 @@ module mkInstructionExecutor#(
                 jumpTarget[0] = 0;
 
                 if (jumpTarget[1:0] != 0) begin
-                    executedInstruction.exception = tagged Valid RVException {
-                        cause: INSTRUCTION_ADDRESS_MISALIGNED
+                    executedInstruction.exception = tagged Valid Exception {
+                        isInterrupt: False,
+                        cause: tagged Exception INSTRUCTION_ADDRESS_MISALIGNED
                     };
                 end else begin
                     executedInstruction.changedProgramCounter = tagged Valid jumpTarget;

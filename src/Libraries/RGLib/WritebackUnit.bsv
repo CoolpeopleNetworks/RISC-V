@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 
 import CSRFile::*;
 import ExecutedInstruction::*;
@@ -25,7 +25,7 @@ module mkWritebackUnit#(
     ProgramCounterRedirect programCounterRedirect,
     RegisterFile registerFile,
     CSRFile csrFile,
-    Reg#(PrivilegeLevel) currentPrivilegeLevel
+    Reg#(RVPrivilegeLevel) currentPrivilegeLevel
 )(WritebackUnit);
     Reg#(Bool) instructionRetired <- mkDReg(False);
 
@@ -46,11 +46,21 @@ module mkWritebackUnit#(
                 $display("%0d,%0d,%0d,%0d,writeback,NO-OP", cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber);
             end
 
+            //
             // Handle any exceptions
+            //
             if (memoryAccessCompleteInstruction.exception matches tagged Valid .exception) begin
                 pipelineController.flush(0);
 
-                let exceptionVector <- csrFile.beginException(currentPrivilegeLevel, exception.cause);
+                Word exceptionCause = ?;
+                exceptionCause[valueOf(XLEN)-1] = (exception.isInterrupt ? 1 : 0);
+                if (exception.isInterrupt) begin
+                    exceptionCause[valueOf(XLEN)-2:0] = pack(exception.cause.Interrupt);
+                end else begin
+                    exceptionCause[valueOf(XLEN)-2:0] = pack(exception.cause.Exception);
+                end
+
+                let exceptionVector <- csrFile.beginException(currentPrivilegeLevel, exception);
                 programCounterRedirect.exception(exceptionVector); 
 
                 $display("%0d,%0d,%0d,%0d,writeback,EXCEPTION: %0d - Jumping to $%08x", cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber, exception.cause, exceptionVector);

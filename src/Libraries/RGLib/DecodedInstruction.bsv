@@ -1,10 +1,23 @@
-import RVTypes::*;
+import RGTypes::*;
+import PipelineController::*;
+
+typedef enum {
+    ALU,
+    BRANCH,
+    COPY_IMMEDIATE, // copies immediate value to register rd (Used by LUI and AUIPC).
+    JUMP,
+    JUMP_INDIRECT,
+    LOAD,
+    STORE,
+    SYSTEM,
+    UNSUPPORTED_OPCODE
+} Opcode deriving(Bits, Eq, FShow);
 
 typedef struct {
     PipelineEpoch epoch;
-    RVOpcode opcode;
+    Opcode opcode;
     ProgramCounter programCounter;
-    ALUOperator aluOperator;
+    RVALUOperator aluOperator;
     RVLoadOperator loadOperator;
     RVStoreOperator storeOperator;
     RVBranchOperator branchOperator;

@@ -1,7 +1,8 @@
-import RVTypes::*;
+import RGTypes::*;
 
 import EncodedInstruction::*;
 import InstructionMemory::*;
+import PipelineController::*;
 import ProgramCounterRedirect::*;
 
 import FIFO::*;

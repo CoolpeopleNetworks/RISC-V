@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 
 import CSRFile::*;
 import DataMemory::*;
@@ -80,7 +80,7 @@ module mkRG100Core#(
     //
     // Current privilege level
     //
-    Reg#(PrivilegeLevel) currentPrivilegeLevel <- mkReg(PRIVILEGE_LEVEL_MACHINE);
+    Reg#(RVPrivilegeLevel) currentPrivilegeLevel <- mkReg(PRIVILEGE_LEVEL_MACHINE);
 
     Reg#(Bool) started <- mkReg(False);
 

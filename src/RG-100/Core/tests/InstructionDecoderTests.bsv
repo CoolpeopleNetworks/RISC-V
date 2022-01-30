@@ -1,7 +1,7 @@
 import ALU::*;
 import InstructionDecoder::*;
 import Instruction::*;
-import RVTypes::*;
+import RGTypes::*;
 
 (* synthesize *)
 module mkInstructionDecoderTests(Empty);

@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 
 export MachineInformation(..), mkMachineInformationRegisters;
 

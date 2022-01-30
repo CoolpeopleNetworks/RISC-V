@@ -1,4 +1,5 @@
-import RVTypes::*;
+import RGTypes::*;
+import PipelineController::*;
 
 typedef struct {
     ProgramCounter programCounter;

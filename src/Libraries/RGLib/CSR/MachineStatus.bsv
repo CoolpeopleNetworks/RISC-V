@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 
 export MachineStatus(..), mkMachineStatusRegister;
 
@@ -44,7 +44,7 @@ typedef struct {
     Bool machineInterruptsEnabledUponTrap;                  // MPIE
     Bool supervisorInterruptPreviousPrivilegeLevel;         // SPP
     FSVSState vectorExtensionTrapState;                     // VS
-    PrivilegeLevel machineInterruptPreviousPrivilegeLevel;  // MPP
+    RVPrivilegeLevel machineInterruptPreviousPrivilegeLevel;  // MPP
     FSVSState floatingPointExtensionTrapState;              // FS
     XSState userModeExtensionsTrapState;                    // XS
     Bool effectivePrivilegeLevel;                           // MPRV

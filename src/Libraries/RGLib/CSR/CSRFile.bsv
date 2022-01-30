@@ -1,10 +1,11 @@
-import RegUtil::*;
+import RGTypes::*;
 
-import RVTypes::*;
-
+import ExecutedInstruction::*;
 import MachineInformation::*;
 import MachineStatus::*;
 import MachineTraps::*;
+
+import RegUtil::*;
 
 typedef enum {
     MSTATUS         = 12'h300,    // Machine Status Register (MRW)
@@ -46,11 +47,11 @@ typedef enum {
 
 interface CSRFile;
     // Generic read/write support
-    method Maybe#(Word) read(PrivilegeLevel curPriv, CSRIndex index);
-    method ActionValue#(Bool) write(PrivilegeLevel curPriv, CSRIndex index, Word value);
+    method Maybe#(Word) read(RVPrivilegeLevel curPriv, CSRIndex index);
+    method ActionValue#(Bool) write(RVPrivilegeLevel curPriv, CSRIndex index, Word value);
 
     // Exception handling
-    method ActionValue#(ProgramCounter) beginException(PrivilegeLevel privilegeLevel, RVExceptionCause exceptionCause);
+    method ActionValue#(ProgramCounter) beginException(RVPrivilegeLevel privilegeLevel, Exception exception);
 
     // Special purpose
     method Word64 cycle_counter;
@@ -77,7 +78,7 @@ module mkCSRFile(CSRFile);
     Reg#(Word)      mtimeh      = readOnlyReg(truncateLSB(timeCounter));
     Reg#(Word)      minstreth   = readOnlyReg(truncateLSB(instructionsRetiredCounter));
 
-    method Maybe#(Word) read(PrivilegeLevel curPriv, CSRIndex index);
+    method Maybe#(Word) read(RVPrivilegeLevel curPriv, CSRIndex index);
         // Access check
         if (pack(curPriv) < index[9:8]) begin
             return tagged Invalid;
@@ -93,7 +94,7 @@ module mkCSRFile(CSRFile);
         end
     endmethod
 
-    method ActionValue#(Bool) write(PrivilegeLevel curPriv, CSRIndex index, Word value);
+    method ActionValue#(Bool) write(RVPrivilegeLevel curPriv, CSRIndex index, Word value);
         // Access and write to read-only CSR check.
         if (pack(curPriv) < index[9:8] || index[11:10] == 'b11) begin
             return False;
@@ -104,7 +105,7 @@ module mkCSRFile(CSRFile);
         end
     endmethod
 
-    method ActionValue#(ProgramCounter) beginException(PrivilegeLevel privilegeLevel, RVExceptionCause exceptionCause);
+    method ActionValue#(ProgramCounter) beginException(RVPrivilegeLevel privilegeLevel, Exception exception);
         return 'hdeadbeef;
     endmethod
 

@@ -1,4 +1,4 @@
-import RVTypes::*;
+import RGTypes::*;
 
 interface DataMemory;
     method Action request(Word address, Word value, Bit#(4) writeEnable);

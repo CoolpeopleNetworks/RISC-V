@@ -1,5 +1,5 @@
 import RegFile::*;
-import RVTypes::*;
+import RGTypes::*;
 import MemUtil::*;
 import RG100Core::*;
 

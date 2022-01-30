@@ -1,7 +1,7 @@
-import RVTypes::*;
+import RGTypes::*;
 
 interface ALU;
-    method Maybe#(Word) execute(ALUOperator operator, Word operand1, Word operand2);
+    method Maybe#(Word) execute(RVALUOperator operator, Word operand1, Word operand2);
 endinterface
 
 (* synthesize *)
@@ -16,7 +16,7 @@ module mkALU(ALU);
         return (signedOperand1 < signedOperand2 ? 1 : 0);
     endfunction
 
-    method Maybe#(Word) execute(ALUOperator operator, Word operand1, Word operand2);
+    method Maybe#(Word) execute(RVALUOperator operator, Word operand1, Word operand2);
         return case(unpack(operator))
             ADD:    tagged Valid (operand1 + operand2);
             SUB:    tagged Valid (operand1 - operand2);

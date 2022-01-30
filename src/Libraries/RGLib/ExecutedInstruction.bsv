@@ -1,4 +1,5 @@
-import RVTypes::*;
+import RGTypes::*;
+import PipelineController::*;
 
 typedef struct {
     RegisterIndex rd;
@@ -17,11 +18,19 @@ typedef struct {
 } StoreRequest deriving(Bits, Eq, FShow);
 
 typedef struct {
+    Bool isInterrupt;
+    union tagged {
+        RVExceptionCauses Exception;
+        Bit#(TSub#(XLEN, 2)) Interrupt;
+    } cause;
+} Exception deriving(Bits, Eq, FShow);
+
+typedef struct {
     PipelineEpoch epoch;
     ProgramCounter programCounter;
     Maybe#(ProgramCounter) changedProgramCounter;
     Maybe#(LoadRequest) loadRequest;
     Maybe#(StoreRequest) storeRequest;
-    Maybe#(RVException) exception;
+    Maybe#(Exception) exception;
     Maybe#(WriteBack) writeBack;
 } ExecutedInstruction deriving(Bits, Eq, FShow);
