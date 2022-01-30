@@ -35,7 +35,7 @@ module mkWritebackUnit#(
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 0);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 0, memoryAccessCompleteInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", cycleCounter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
+            $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", cycleCounter, memoryAccessCompleteInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
             inputQueue.deq();
         end else begin
             inputQueue.deq();

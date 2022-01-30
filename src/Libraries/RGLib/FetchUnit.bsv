@@ -45,7 +45,7 @@ module mkFetchUnit#(
             $display("%0d,%0d,%0d,%0d,fetch send,redirected PC: $%08x", cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
         end
 
-        $display("%0d,%0d,%0d,%0d,fetch send,fetching instruction", cycleCounter, fetchEpoch, programCounter, stageNumber);
+        $display("%0d,%0d,%0d,%0d,fetch send,fetch address: $%08x", cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
 
         instructionMemory.request(InstructionMemoryRequest {
             address: fetchProgramCounter
@@ -63,7 +63,7 @@ module mkFetchUnit#(
         let fetchEpoch = instructionEpoch.first();
         instructionEpoch.deq();
 
-        $display("%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", cycleCounter, fetchEpoch, programCounter, stageNumber, fetchResponse.address);
+        $display("%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", cycleCounter, fetchEpoch, fetchResponse.address, stageNumber, fetchResponse.data);
 
         // Tell the decode stage what the program counter for the insruction it'll receive.
         outputQueue.enq(EncodedInstruction {

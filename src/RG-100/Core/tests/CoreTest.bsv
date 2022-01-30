@@ -1,5 +1,3 @@
-//`define PIPELINED
-
 import RegFile::*;
 import RVTypes::*;
 import MemUtil::*;

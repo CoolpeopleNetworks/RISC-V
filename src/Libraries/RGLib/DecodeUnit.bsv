@@ -249,7 +249,7 @@ module mkDecodeUnit#(
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 2);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 2, instructionMemoryResponse.pipelineEpoch)) begin
-            $display("%0d,%0d,%0d,%0d,decode,stale instruction...ignoring", cycleCounter, stageEpoch, instructionMemoryResponse.programCounter, stageNumber);
+            $display("%0d,%0d,%0d,%0d,decode,stale instruction...ignoring", cycleCounter, instructionMemoryResponse.pipelineEpoch, instructionMemoryResponse.programCounter, stageNumber);
             inputQueue.deq();
         end else begin
             let encodedInstruction = instructionMemoryResponse.rawInstruction;

@@ -33,7 +33,7 @@ module mkMemoryAccessUnit#(
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 1, executedInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", cycleCounter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
+            $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", cycleCounter, executedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
             inputQueue.deq();
         end else begin
             if(executedInstruction.loadRequest matches tagged Valid .loadRequest) begin

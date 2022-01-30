@@ -39,7 +39,7 @@ module mkExecutionUnit#(
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 1, decodedInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", csrFile.cycle_counter, stageEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch[1]);
+            $display("%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", csrFile.cycle_counter, decodedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch[1]);
             inputQueue.deq();
         end else begin
             let currentEpoch = stageEpoch;
