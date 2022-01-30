@@ -64,6 +64,7 @@ module mkDecodeUnit#(
         let immediate31_20 = signExtend(instruction[31:20]); // same bits as {func7, rs2}
 
         let decodedInstruction = DecodedInstruction {
+            fetchIndex: ?,
             epoch: ?,
             opcode: UNSUPPORTED_OPCODE,
             programCounter: programCounter,
@@ -246,40 +247,51 @@ module mkDecodeUnit#(
     (* fire_when_enabled *)
     rule decode;
         let instructionMemoryResponse = inputQueue.first;
+        let fetchIndex = instructionMemoryResponse.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 2);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 2, instructionMemoryResponse.pipelineEpoch)) begin
-            $display("%0d,%0d,%0d,%0d,decode,stale instruction...ignoring", cycleCounter, instructionMemoryResponse.pipelineEpoch, instructionMemoryResponse.programCounter, stageNumber);
+            $display("%0d,%0d,%0d,%0d,%0d,decode,stale instruction...ignoring", fetchIndex, cycleCounter, instructionMemoryResponse.pipelineEpoch, instructionMemoryResponse.programCounter, stageNumber);
             inputQueue.deq();
         end else begin
             let encodedInstruction = instructionMemoryResponse.rawInstruction;
             let programCounter = instructionMemoryResponse.programCounter;
-            let currentEpoch = stageEpoch;
+
             let decodedInstruction = decodeInstruction(programCounter, encodedInstruction);
+            decodedInstruction.fetchIndex = instructionMemoryResponse.fetchIndex;
             decodedInstruction.epoch = stageEpoch;
 
-            $display("%0d,%0d,%0d,%0d,decode,scoreboard size: %0d", cycleCounter, stageEpoch, programCounter, stageNumber, scoreboard.size);
+            $display("%0d,%0d,%0d,%0d,%0d,decode,scoreboard size: %0d", fetchIndex, cycleCounter, stageEpoch, programCounter, stageNumber, scoreboard.size);
 
             let stallWaitingForOperands = scoreboard.search(decodedInstruction.rs1, decodedInstruction.rs2);
             if (stallWaitingForOperands) begin
-                $display("%0d,%0d,%0d,%0d,decode,stall waiting for operands", cycleCounter, currentEpoch, programCounter, stageNumber);
+                $display("%0d,%0d,%0d,%0d,%0d,decode,stall waiting for operands", fetchIndex, cycleCounter, stageEpoch, programCounter, stageNumber);
             end else begin
                 inputQueue.deq;
 
                 // Read the source operand registers since the scoreboard indicates it's available.
                 if (isValid(decodedInstruction.rs1))
-                    decodedInstruction.rs1Value = registerFile.read1(fromMaybe(?, decodedInstruction.rs1));
+                    decodedInstruction.rs1Value = registerFile.read1(unJust(decodedInstruction.rs1));
 
                 if (isValid(decodedInstruction.rs2))
-                    decodedInstruction.rs2Value = registerFile.read2(fromMaybe(?, decodedInstruction.rs2));
+                    decodedInstruction.rs2Value = registerFile.read2(unJust(decodedInstruction.rs2));
 
                 scoreboard.insert(decodedInstruction.rd);
+                $display("%0d,%0d,%0d,%0d,%0d,decode,inserting into scoreboard (new count = %0d): ", 
+                    fetchIndex, 
+                    cycleCounter, 
+                    stageEpoch, 
+                    programCounter, 
+                    stageNumber, 
+                    scoreboard.size,
+                    (isValid(decodedInstruction.rd) ? 
+                        $format("x%0d", unJust(decodedInstruction.rd)) : $format("INVALID")));
 
                 // Send the decode result to the output queue.
                 outputQueue.enq(decodedInstruction);
 
-                $display("%0d,%0d,%0d,%0d,decode,decode complete", cycleCounter, currentEpoch, programCounter, stageNumber);
-    //                $display("%0d,%0d,%0d,2,decode,", cycleCounter, currentEpoch, programCounter, fshow(decodedInstruction));
+                $display("%0d,%0d,%0d,%0d,%0d,decode,decode complete", fetchIndex, cycleCounter, stageEpoch, programCounter, stageNumber);
+    //                $display("%0d,%0d,%0d,2,decode,", cycleCounter, stageEpoch, programCounter, fshow(decodedInstruction));
             end
         end
     endrule

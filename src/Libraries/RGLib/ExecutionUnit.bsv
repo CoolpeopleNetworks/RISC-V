@@ -7,7 +7,6 @@ import ExecutedInstruction::*;
 import InstructionExecutor::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
-import Scoreboard::*;
 
 import FIFO::*;
 import GetPut::*;
@@ -25,7 +24,6 @@ module mkExecutionUnit#(
     PipelineController pipelineController,
     FIFO#(DecodedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
-    Scoreboard#(4) scoreboard,
     CSRFile csrFile,
     Reg#(Bool) halt
 )(ExecutionUnit);
@@ -36,26 +34,29 @@ module mkExecutionUnit#(
     (* fire_when_enabled *)
     rule execute;
         let decodedInstruction = inputQueue.first();
+        let fetchIndex = decodedInstruction.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 1, decodedInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", csrFile.cycle_counter, decodedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch[1]);
+            $display("%0d,%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", fetchIndex, csrFile.cycle_counter, decodedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch[1]);
             inputQueue.deq();
         end else begin
             let currentEpoch = stageEpoch;
             inputQueue.deq();
 
-            $display("%0d,%0d,%0d,%0d,execute,executing instruction: ", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber, fshow(decodedInstruction.opcode));
-
+            $display("%0d,%0d,%0d,%0d,%0d,execute,executing instruction: ", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber, fshow(decodedInstruction.opcode));
+            $display("%0d,%0d,%0d,%0d,%0d,execute,RS1: ", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber, (isValid(decodedInstruction.rs1) ? $format("x%0d = %0d ($%0x)", unJust(decodedInstruction.rs1), decodedInstruction.rs1Value, decodedInstruction.rs1Value) : $format("INVALID")));
+            $display("%0d,%0d,%0d,%0d,%0d,execute,RS2: ", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber, (isValid(decodedInstruction.rs2) ? $format("x%0d = %0d ($%0x)", unJust(decodedInstruction.rs2), decodedInstruction.rs2Value, decodedInstruction.rs2Value) : $format("INVALID")));
+            
             // Special case handling for specific SYSTEM instructions
             if (decodedInstruction.opcode == SYSTEM) begin
                 case(decodedInstruction.systemOperator)
                     pack(ECALL): begin
-                        $display("%0d,%0d,%0d,%0d,execute,ECALL instruction encountered - HALTED", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
+                        $display("%0d,%0d,%0d,%0d,%0d,execute,ECALL instruction encountered - HALTED", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
                         halt <= True;
                     end
                     pack(EBREAK): begin
-                        $display("%0d,%0d,%0d,%0d,execute,EBREAK instruction encountered - HALTED", csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
+                        $display("%0d,%0d,%0d,%0d,%0d,execute,EBREAK instruction encountered - HALTED", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
                         halt <= True;
                     end
                 endcase
@@ -71,25 +72,24 @@ module mkExecutionUnit#(
                 executedInstruction.epoch = executedInstruction.epoch + 1;
 
                 let targetAddress = fromMaybe(?, executedInstruction.changedProgramCounter);
-                $display("%0d,%0d,%0d,%0d,execute,branch/jump to: $%08x", cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, targetAddress);
+                $display("%0d,%0d,%0d,%0d,%0d,execute,branch/jump to: $%08x", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, targetAddress);
                 programCounterRedirect.branch(targetAddress);
             end
 
             // If writeback data exists, that needs to be written into the previous pipeline 
             // stages using operand forwarding.
             if (executedInstruction.writeBack matches tagged Valid .wb) begin
-                $display("%0d,%0d,%0d,%0d,execute,complete (WB: x%0d = %08x)", cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, wb.rd, wb.value);
+                $display("%0d,%0d,%0d,%0d,%0d,execute,complete (WB: x%0d = %08x)", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, wb.rd, wb.value);
             end else begin
                 // Note: any exceptions are passed through until handled inside the writeback
                 // stage.
                 if (executedInstruction.exception matches tagged Valid .exception) begin
-                    $display("%0d,%0d,%0d,%0d,execute,EXCEPTION:", cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, fshow(exception.cause));
+                    $display("%0d,%0d,%0d,%0d,%0d,execute,EXCEPTION:", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, fshow(exception.cause));
                 end else begin
-                    $display("%0d,%0d,%0d,%0d,execute,complete", cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber);
+                    $display("%0d,%0d,%0d,%0d,%0d,execute,complete", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber);
                 end
             end
 
-            scoreboard.remove;
             outputQueue.enq(executedInstruction);
         end
     endrule

@@ -30,25 +30,26 @@ module mkMemoryAccessUnit#(
     (* fire_when_enabled *)
     rule memoryAccess(waitingForLoadToComplete == False);
         let executedInstruction = inputQueue.first();
+        let fetchIndex = executedInstruction.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
         if (!pipelineController.isCurrentEpoch(stageNumber, 1, executedInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", cycleCounter, executedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
+            $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, executedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
             inputQueue.deq();
         end else begin
             if(executedInstruction.loadRequest matches tagged Valid .loadRequest) begin
-                $display("%0d,%0d,%0d,%0d,memory access,LOAD", cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
+                $display("%0d,%0d,%0d,%0d,%0d,memory access,LOAD", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
                 begin
                     // NOTE: Alignment checks were already performed during the execution stage.
                     dataMemory.request(loadRequest.effectiveAddress, ?, 0);
 
-                    $display("%0d,%0d,%0d,%0d,memory access, Loading from $%08x", cycleCounter, executedInstruction.programCounter, loadRequest.effectiveAddress);
+                    $display("%0d,%0d,%0d,%0d,%0d,memory access, Loading from $%08x", fetchIndex, cycleCounter, executedInstruction.programCounter, loadRequest.effectiveAddress);
                     instructionWaitingForLoad <= executedInstruction;
                     waitingForLoadToComplete <= True;
                 end
             end else begin
                 // Not a LOAD/STORE
-                $display("%0d,%0d,%0d,%0d,memory access,NO-OP", cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
+                $display("%0d,%0d,%0d,%0d,%0d,memory access,NO-OP", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
 
                 inputQueue.deq();
                 outputQueue.enq(executedInstruction);

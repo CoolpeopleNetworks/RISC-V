@@ -14,6 +14,7 @@ typedef enum {
 } Opcode deriving(Bits, Eq, FShow);
 
 typedef struct {
+    Word fetchIndex;
     PipelineEpoch epoch;
     Opcode opcode;
     ProgramCounter programCounter;

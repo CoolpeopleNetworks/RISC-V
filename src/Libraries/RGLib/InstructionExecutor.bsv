@@ -71,6 +71,7 @@ module mkInstructionExecutor#(
 
     method ActionValue#(ExecutedInstruction) executeInstruction(DecodedInstruction decodedInstruction);
         let executedInstruction = ExecutedInstruction {
+            fetchIndex: decodedInstruction.fetchIndex,
             epoch: decodedInstruction.epoch,
             programCounter: decodedInstruction.programCounter,
             changedProgramCounter: tagged Invalid,

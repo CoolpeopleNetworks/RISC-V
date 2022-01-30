@@ -86,7 +86,7 @@ module mkRG100Core#(
 
     (* fire_when_enabled *)
     rule startup(started == False);
-        $display("Cycle,Pipeline Epoch,Program Counter,Stage Number,Stage Name,Info");
+        $display("FetchIndex,Cycle,Pipeline Epoch,Program Counter,Stage Number,Stage Name,Info");
         started <= True;
     endrule
 
@@ -124,7 +124,6 @@ module mkRG100Core#(
         pipelineController,
         decodeUnit.getDecodedInstructionQueue,
         programCounterRedirect,
-        scoreboard,
         csrFile,
         halt
     );
@@ -149,6 +148,7 @@ module mkRG100Core#(
         pipelineController,
         memoryAccessUnit.getMemoryAccessedInstructionQueue,
         programCounterRedirect,
+        scoreboard,
         registerFile,
         csrFile,
         currentPrivilegeLevel

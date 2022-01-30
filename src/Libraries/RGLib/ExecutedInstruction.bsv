@@ -26,6 +26,7 @@ typedef struct {
 } Exception deriving(Bits, Eq, FShow);
 
 typedef struct {
+    Word fetchIndex;
     PipelineEpoch epoch;
     ProgramCounter programCounter;
     Maybe#(ProgramCounter) changedProgramCounter;

@@ -11,6 +11,11 @@ import SpecialFIFOs::*;
 
 export mkFetchUnit, FetchUnit(..);
 
+typedef struct {
+    PipelineEpoch epoch;
+    Word index;     // The fetch index
+} FetchInfo deriving(Bits, Eq, FShow);
+
 interface FetchUnit;
     interface FIFO#(EncodedInstruction) getEncodedInstructionQueue;
 endinterface
@@ -23,11 +28,12 @@ module mkFetchUnit#(
     InstructionMemory instructionMemory,
     Reg#(Bool) fetchEnabled
 )(FetchUnit);
+    Reg#(Word) fetchCounter <- mkReg(0);
     Reg#(ProgramCounter) programCounter <- mkReg(initialProgramCounter);
     FIFO#(EncodedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(PipelineEpoch) currentEpoch <- mkReg(0);
 
-    FIFO#(PipelineEpoch) instructionEpoch <- mkPipelineFIFO(); // holds the epoch for the current instruction request
+    FIFO#(FetchInfo) fetchInfoQueue <- mkPipelineFIFO(); // holds the fetch info for the current instruction request
 
     (* fire_when_enabled *)
     rule sendFetchRequest(fetchEnabled == True);
@@ -43,17 +49,21 @@ module mkFetchUnit#(
             fetchEpoch = fetchEpoch + 1;
             currentEpoch <= fetchEpoch;
 
-            $display("%0d,%0d,%0d,%0d,fetch send,redirected PC: $%08x", cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
+            $display("%0d,%0d,%0d,%0d,%0d,fetch send,redirected PC: $%08x", fetchCounter, cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
         end
 
-        $display("%0d,%0d,%0d,%0d,fetch send,fetch address: $%08x", cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
+        $display("%0d,%0d,%0d,%0d,%0d,fetch send,fetch address: $%08x", fetchCounter, cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
 
         instructionMemory.request(InstructionMemoryRequest {
             address: fetchProgramCounter
         });
-        instructionEpoch.enq(fetchEpoch);
+        fetchInfoQueue.enq(FetchInfo {
+            epoch: fetchEpoch,
+            index: fetchCounter
+        });
 
         programCounter <= fetchProgramCounter + 4;
+        fetchCounter <= fetchCounter + 1;
     endrule
 
     (* fire_when_enabled *)
@@ -61,15 +71,16 @@ module mkFetchUnit#(
         let fetchResponse = instructionMemory.first();
         instructionMemory.deq();
 
-        let fetchEpoch = instructionEpoch.first();
-        instructionEpoch.deq();
+        let fetchInfo = fetchInfoQueue.first();
+        fetchInfoQueue.deq();
 
-        $display("%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", cycleCounter, fetchEpoch, fetchResponse.address, stageNumber, fetchResponse.data);
+        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchResponse.address, stageNumber, fetchResponse.data);
 
         // Tell the decode stage what the program counter for the insruction it'll receive.
         outputQueue.enq(EncodedInstruction {
+            fetchIndex: fetchInfo.index,
             programCounter: fetchResponse.address,
-            pipelineEpoch: fetchEpoch,
+            pipelineEpoch: fetchInfo.epoch,
             rawInstruction: fetchResponse.data
         });
     endrule
