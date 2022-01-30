@@ -24,10 +24,6 @@ export RG100Core (..), mkRG100Core;
 interface RG100Core;
 endinterface
 
-typedef struct {
-    PipelineEpoch epoch;
-} FetchInfo deriving(Bits, Eq);
-
 //
 // Pipeline Stages
 // 1. Instruction Fetch
@@ -77,6 +73,11 @@ module mkRG100Core#(
     PipelineController pipelineController <- mkPipelineController(6 /* stage count */);
 
     //
+    // Program Counter Redirect
+    //
+    ProgramCounterRedirect programCounterRedirect <- mkProgramCounterRedirect;
+
+    //
     // Current privilege level
     //
     Reg#(PrivilegeLevel) currentPrivilegeLevel <- mkReg(PRIVILEGE_LEVEL_MACHINE);
@@ -92,7 +93,6 @@ module mkRG100Core#(
     //
     // Stage 1 - Instruction fetch
     //
-    ProgramCounterRedirect programCounterRedirect <- mkProgramCounterRedirect;
     Reg#(Bool) fetchEnabled <- mkReg(True);
     FetchUnit fetchUnit <- mkFetchUnit(
         cycleCounter,
