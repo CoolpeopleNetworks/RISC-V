@@ -1,5 +1,6 @@
 import RGTypes::*;
 
+import BypassUnit::*;
 import CSRFile::*;
 import DataMemory::*;
 import DecodeUnit::*;
@@ -55,17 +56,22 @@ module mkRG100Core#(
     //
     // CSR (Control and Status Register) file
     //
-    CSRFile csrFile <- mkCSRFile();
+    CSRFile csrFile <- mkCSRFile;
 
     //
     // Register file
     //
-    RegisterFile registerFile <- mkRegisterFile();
+    RegisterFile registerFile <- mkRegisterFile;
 
     //
     // Scoreboard
     //
     Scoreboard#(4) scoreboard <- mkScoreboard;
+
+    //
+    // BypassUnit
+    //
+    BypassUnit bypassUnit <- mkBypassUnit;
 
     //
     // Pipeline stage epochs
@@ -112,6 +118,7 @@ module mkRG100Core#(
         pipelineController,
         fetchUnit.getEncodedInstructionQueue,
         scoreboard,
+        bypassUnit,
         registerFile
     );
 
@@ -124,6 +131,8 @@ module mkRG100Core#(
         pipelineController,
         decodeUnit.getDecodedInstructionQueue,
         programCounterRedirect,
+        bypassUnit,
+        scoreboard,
         csrFile,
         halt
     );
@@ -136,7 +145,9 @@ module mkRG100Core#(
         4,
         pipelineController,
         executionUnit.getExecutedInstructionQueue,
-        dataMemory
+        dataMemory,
+        bypassUnit,
+        scoreboard
     );
 
     // 

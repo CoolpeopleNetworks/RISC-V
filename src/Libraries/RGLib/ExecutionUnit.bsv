@@ -1,12 +1,14 @@
 import RGTypes::*;
 
 import ALU::*;
+import BypassUnit::*;
 import CSRFile::*;
 import DecodedInstruction::*;
 import ExecutedInstruction::*;
 import InstructionExecutor::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
+import Scoreboard::*;
 
 import FIFO::*;
 import GetPut::*;
@@ -24,6 +26,8 @@ module mkExecutionUnit#(
     PipelineController pipelineController,
     FIFO#(DecodedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
+    BypassUnit bypassUnit,
+    Scoreboard#(4) scoreboard,
     CSRFile csrFile,
     Reg#(Bool) halt
 )(ExecutionUnit);
@@ -31,7 +35,7 @@ module mkExecutionUnit#(
 
     InstructionExecutor instructionExecutor <- mkInstructionExecutor(csrFile);
 
-    (* fire_when_enabled *)
+//    (* fire_when_enabled *)
     rule execute;
         let decodedInstruction = inputQueue.first();
         let fetchIndex = decodedInstruction.fetchIndex;
@@ -83,6 +87,9 @@ module mkExecutionUnit#(
             // stages using operand forwarding.
             if (executedInstruction.writeBack matches tagged Valid .wb) begin
                 $display("%0d,%0d,%0d,%0d,%0d,execute,complete (WB: x%0d = %08x)", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, wb.rd, wb.value);
+
+                bypassUnit.addValueFromExecutionUnit(wb.value);
+                scoreboard.remove;
             end else begin
                 // Note: any exceptions are passed through until handled inside the writeback
                 // stage.

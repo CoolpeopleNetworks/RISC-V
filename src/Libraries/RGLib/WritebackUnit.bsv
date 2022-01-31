@@ -46,10 +46,11 @@ module mkWritebackUnit#(
                 $display("%0d,%0d,%0d,%0d,%0d,writeback,writing result ($%08x) to register x%0d", fetchIndex, cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber, wb.value, wb.rd);
                 registerFile.write(wb.rd, wb.value);
             end else begin
+                // Remove the entry from the scoreboard - if the writeback data exists above,
+                // previous stages already removed the scoreboard entry.
+                scoreboard.remove;
                 $display("%0d,%0d,%0d,%0d,%0d,writeback,NO-OP", fetchIndex, cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber);
             end
-
-            scoreboard.remove;
 
             //
             // Handle any exceptions

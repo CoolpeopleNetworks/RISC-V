@@ -1,11 +1,11 @@
 import RGTypes::*;
 
+import BypassUnit::*;
 import EncodedInstruction::*;
 import DecodedInstruction::*;
 import PipelineController::*;
 import RegisterFile::*;
 import Scoreboard::*;
-
 import FIFO::*;
 import GetPut::*;
 import SpecialFIFOs::*;
@@ -22,6 +22,7 @@ module mkDecodeUnit#(
     PipelineController pipelineController,
     FIFO#(EncodedInstruction) inputQueue,
     Scoreboard#(4) scoreboard,
+    BypassUnit bypassUnit,
     RegisterFile registerFile
 )(DecodeUnit);
     FIFO#(DecodedInstruction) outputQueue <- mkPipelineFIFO();
@@ -272,13 +273,24 @@ module mkDecodeUnit#(
                 inputQueue.deq;
 
                 // Read the source operand registers since the scoreboard indicates it's available.
-                if (isValid(decodedInstruction.rs1))
-                    decodedInstruction.rs1Value = registerFile.read1(unJust(decodedInstruction.rs1));
+                if (isValid(decodedInstruction.rs1)) begin
+                    let registerIndex = unJust(decodedInstruction.rs1);
+                    let bypassUnitValue = bypassUnit.getBypassedValue(registerIndex);
 
-                if (isValid(decodedInstruction.rs2))
-                    decodedInstruction.rs2Value = registerFile.read2(unJust(decodedInstruction.rs2));
+                    decodedInstruction.rs1Value = fromMaybe(registerFile.read1(registerIndex), bypassUnitValue);
+                end
 
-                scoreboard.insert(decodedInstruction.rd);
+                if (isValid(decodedInstruction.rs2)) begin
+                    let registerIndex = unJust(decodedInstruction.rs2);
+                    let bypassUnitValue = bypassUnit.getBypassedValue(registerIndex);
+
+                    decodedInstruction.rs2Value = fromMaybe(registerFile.read2(registerIndex), bypassUnitValue);
+                end
+
+                if (isValid(decodedInstruction.rd)) begin
+                    bypassUnit.setRegisterIndex(unJust(decodedInstruction.rd));
+                end
+                
                 $display("%0d,%0d,%0d,%0d,%0d,decode,inserting into scoreboard (new count = %0d): ", 
                     fetchIndex, 
                     cycleCounter, 

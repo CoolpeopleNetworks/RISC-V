@@ -1,9 +1,11 @@
 import RGTypes::*;
 
+import BypassUnit::*;
 import DataMemory::*;
 import EncodedInstruction::*;
 import ExecutedInstruction::*;
 import PipelineController::*;
+import Scoreboard::*;
 
 import Assert::*;
 import FIFO::*;
@@ -21,7 +23,9 @@ module mkMemoryAccessUnit#(
     Integer stageNumber,
     PipelineController pipelineController,
     FIFO#(ExecutedInstruction) inputQueue,
-    DataMemory dataMemory
+    DataMemory dataMemory,
+    BypassUnit bypassUnit,
+    Scoreboard#(4) scoreboard
 )(MemoryAccessUnit);
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
@@ -74,6 +78,9 @@ module mkMemoryAccessUnit#(
             rd: loadRequest.rd,
             value: memoryResponse
         };
+
+        bypassUnit.addValueFromMemoryAccessUnit(memoryResponse);
+        scoreboard.remove;
 
         inputQueue.deq();
         outputQueue.enq(executedInstruction);
