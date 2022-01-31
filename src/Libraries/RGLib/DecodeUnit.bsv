@@ -68,6 +68,7 @@ module mkDecodeUnit#(
             epoch: ?,
             opcode: UNSUPPORTED_OPCODE,
             programCounter: programCounter,
+            predictedNextProgramCounter: ?,
             aluOperator: unpack({func7, func3}),
             loadOperator: unpack(func3),
             storeOperator: unpack(func3),
@@ -260,6 +261,7 @@ module mkDecodeUnit#(
             let decodedInstruction = decodeInstruction(programCounter, encodedInstruction);
             decodedInstruction.fetchIndex = instructionMemoryResponse.fetchIndex;
             decodedInstruction.epoch = stageEpoch;
+            decodedInstruction.predictedNextProgramCounter = instructionMemoryResponse.predictedNextProgramCounter;
 
             $display("%0d,%0d,%0d,%0d,%0d,decode,scoreboard size: %0d", fetchIndex, cycleCounter, stageEpoch, programCounter, stageNumber, scoreboard.size);
 

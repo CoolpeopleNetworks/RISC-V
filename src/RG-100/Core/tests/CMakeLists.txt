@@ -15,5 +15,6 @@ target_link_libraries(CoreTest
 
 target_compile_definitions(CoreTest PUBLIC
     RV32
-#    DISABLE_PIPELINING
+    #DISABLE_PIPELINING
+    #DISABLE_BRANCH_PREDICTION
 )

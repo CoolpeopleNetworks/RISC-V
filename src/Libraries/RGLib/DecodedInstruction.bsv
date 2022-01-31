@@ -18,6 +18,7 @@ typedef struct {
     PipelineEpoch epoch;
     Opcode opcode;
     ProgramCounter programCounter;
+    ProgramCounter predictedNextProgramCounter;
     RVALUOperator aluOperator;
     RVLoadOperator loadOperator;
     RVStoreOperator storeOperator;

@@ -112,6 +112,7 @@ module mkInstructionExecutor#(
 
                 if (isValidBranchOperator(decodedInstruction.branchOperator) &&
                     isValid(decodedInstruction.immediate)) begin
+                    let nextProgramCounter = ?;
                     if (isBranchTaken(decodedInstruction)) begin
                         // Determine branch target address and check
                         // for address misalignment.
@@ -124,11 +125,16 @@ module mkInstructionExecutor#(
                             };
                         end else begin
                             // Target address aligned
-                            executedInstruction.changedProgramCounter = tagged Valid branchTarget;
                             executedInstruction.exception = tagged Invalid;
+                            nextProgramCounter = branchTarget;
                         end
                     end else begin
                         executedInstruction.exception = tagged Invalid;
+                        nextProgramCounter = decodedInstruction.programCounter + 4;
+                    end
+
+                    if (nextProgramCounter != decodedInstruction.predictedNextProgramCounter) begin
+                        executedInstruction.changedProgramCounter = tagged Valid nextProgramCounter;
                     end
                 end
             end

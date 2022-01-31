@@ -64,16 +64,19 @@ module mkExecutionUnit#(
 
             let executedInstruction <- instructionExecutor.executeInstruction(decodedInstruction);
 
-            // If the program counter was changed.
+            // If the program counter was changed, see if it matches a predicted branch/jump.
+            // If not, redirect the program counter to the mispredicted target address.
             if (isValid(executedInstruction.changedProgramCounter)) begin
-                pipelineController.flush(1);
+                let targetAddress = unJust(executedInstruction.changedProgramCounter);
+                if (decodedInstruction.predictedNextProgramCounter != targetAddress) begin
+                    pipelineController.flush(1);
 
-                // Bump the current instruction epoch
-                executedInstruction.epoch = executedInstruction.epoch + 1;
+                    // Bump the current instruction epoch
+                    executedInstruction.epoch = executedInstruction.epoch + 1;
 
-                let targetAddress = fromMaybe(?, executedInstruction.changedProgramCounter);
-                $display("%0d,%0d,%0d,%0d,%0d,execute,branch/jump to: $%08x", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, targetAddress);
-                programCounterRedirect.branch(targetAddress);
+                    $display("%0d,%0d,%0d,%0d,%0d,execute,branch/jump to: $%08x", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, targetAddress);
+                    programCounterRedirect.branch(targetAddress);
+                end
             end
 
             // If writeback data exists, that needs to be written into the previous pipeline 
