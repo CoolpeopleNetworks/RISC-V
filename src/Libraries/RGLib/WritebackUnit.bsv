@@ -1,3 +1,8 @@
+//
+// WritebackUnit
+//
+// This module handles writing back instruction results back to the register file.
+//
 import RGTypes::*;
 
 import CSRFile::*;
@@ -37,8 +42,8 @@ module mkWritebackUnit#(
         let fetchIndex = memoryAccessCompleteInstruction.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 0);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, 0, memoryAccessCompleteInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, memoryAccessCompleteInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
+        if (!pipelineController.isCurrentEpoch(stageNumber, 0, memoryAccessCompleteInstruction.pipelineEpoch)) begin
+            $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, memoryAccessCompleteInstruction.pipelineEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().pipelineEpoch, stageEpoch);
             inputQueue.deq();
         end else begin
             inputQueue.deq();

@@ -1,7 +1,13 @@
+//
+// PipelineController
+//
+// This module is responsible for handling pipeline operations.  It's used by various stages
+// to determine if their configure epoch is current.
+//
 import RGTypes::*;
 import List::*;
 
-typedef Word PipelineEpoch;
+typedef Bit#(1) PipelineEpoch;
 
 interface PipelineController;
     method PipelineEpoch stageEpoch(Integer stageIndex, Integer portNumber);

@@ -1,3 +1,11 @@
+//
+// InstructionExecutor
+//
+// This module provides a execution engine for RISC-V instructions.  It accepts a
+// 'DecodedInstruction' as input and returns a Maybe# containing an 'ExecutedInstruction'.
+// If the instruction contained in the 'DecodedInstruction' is invalid in any way, the
+// executeInstruction() method will return 'tagged Invalid'.
+//
 import RGTypes::*;
 
 import ALU::*;
@@ -72,7 +80,7 @@ module mkInstructionExecutor#(
     method ActionValue#(ExecutedInstruction) executeInstruction(DecodedInstruction decodedInstruction);
         let executedInstruction = ExecutedInstruction {
             fetchIndex: decodedInstruction.fetchIndex,
-            epoch: decodedInstruction.epoch,
+            pipelineEpoch: decodedInstruction.pipelineEpoch,
             programCounter: decodedInstruction.programCounter,
             changedProgramCounter: tagged Invalid,
             loadRequest: tagged Invalid,

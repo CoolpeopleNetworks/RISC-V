@@ -1,3 +1,9 @@
+//
+// FetchUnit
+//
+// This module is a RISC-V instruction fetch unit.  It is responsible for fetching instructions 
+// from memory and creating a EncodedInstruction structure representing them.
+//
 import RGTypes::*;
 
 import EncodedInstruction::*;

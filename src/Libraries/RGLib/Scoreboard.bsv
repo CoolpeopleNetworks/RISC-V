@@ -1,3 +1,11 @@
+//
+// Scoreboard
+//
+// This module is used to manage how register hazards.  When a destination register is
+// going to be written by an instruction, it writes that register index into the scoreboard.
+// Later instructions in the pipeline query the scoreboard to determine if they must stall
+// waiting for the original register.
+//
 import RGTypes::*;
 import Vector::*;
 

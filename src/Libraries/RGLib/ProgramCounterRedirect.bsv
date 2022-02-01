@@ -1,3 +1,9 @@
+//
+// ProgramCounterRedirect
+//
+// This module is used by various stages to communicate changes to
+// the program counter.
+//
 import RGTypes::*;
 
 export mkProgramCounterRedirect, ProgramCounterRedirect(..);

@@ -1,3 +1,11 @@
+//
+// MemoryAccessUnit
+//
+// This module is responsible for handling RISC-V LOAD and STORE instructions.  It 
+// accepts a 'ExecutedInstruction' structure and if the values contained therein have
+// valid LoadRequest or StoreRequest structures, the requisite load and store operations
+// are executed.
+//
 import RGTypes::*;
 
 import DataMemory::*;
@@ -33,8 +41,8 @@ module mkMemoryAccessUnit#(
         let fetchIndex = executedInstruction.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, 1, executedInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, executedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch);
+        if (!pipelineController.isCurrentEpoch(stageNumber, 1, executedInstruction.pipelineEpoch)) begin
+            $display("%0d,%0d,%0d,%0d,memory access,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, executedInstruction.pipelineEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().pipelineEpoch, stageEpoch);
             inputQueue.deq();
         end else begin
             if(executedInstruction.loadRequest matches tagged Valid .loadRequest) begin

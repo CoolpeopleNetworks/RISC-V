@@ -1,3 +1,9 @@
+//
+// ALU
+//
+// This module is a Arithmetic Logic Unit (ALU) implementation for RISC-V.  It is
+// reponsible for mathematical operations inside the CPU.
+//
 import RGTypes::*;
 
 interface ALU;

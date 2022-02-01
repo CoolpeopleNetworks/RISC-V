@@ -1,3 +1,9 @@
+//
+// DecodeUnit
+//
+// This module is a RISC-V instruction decode unit.  It is responsible for decoding machine 
+// code (a 'EncodedInstruction' structure) values into a 'DecodedInstruction' structure.
+//
 import RGTypes::*;
 
 import EncodedInstruction::*;
@@ -65,7 +71,7 @@ module mkDecodeUnit#(
 
         let decodedInstruction = DecodedInstruction {
             fetchIndex: ?,
-            epoch: ?,
+            pipelineEpoch: ?,
             opcode: UNSUPPORTED_OPCODE,
             programCounter: programCounter,
             predictedNextProgramCounter: ?,
@@ -74,7 +80,6 @@ module mkDecodeUnit#(
             storeOperator: unpack(func3),
             branchOperator: ?,
             systemOperator: ?,
-            predictedBranchTarget: ?,
             rd: tagged Invalid,
             rs1: tagged Invalid,
             rs2: tagged Invalid,
@@ -170,8 +175,6 @@ module mkDecodeUnit#(
                     decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.rs2 = tagged Valid rs2;
                     decodedInstruction.immediate = tagged Valid immediate;
-                    decodedInstruction.predictedBranchTarget = 
-                        (branchDirectionNegative ? branchTarget : (programCounter + 4));
                 end
             end
             //
@@ -260,7 +263,7 @@ module mkDecodeUnit#(
 
             let decodedInstruction = decodeInstruction(programCounter, encodedInstruction);
             decodedInstruction.fetchIndex = instructionMemoryResponse.fetchIndex;
-            decodedInstruction.epoch = stageEpoch;
+            decodedInstruction.pipelineEpoch = stageEpoch;
             decodedInstruction.predictedNextProgramCounter = instructionMemoryResponse.predictedNextProgramCounter;
 
             $display("%0d,%0d,%0d,%0d,%0d,decode,scoreboard size: %0d", fetchIndex, cycleCounter, stageEpoch, programCounter, stageNumber, scoreboard.size);
@@ -279,6 +282,7 @@ module mkDecodeUnit#(
                     decodedInstruction.rs2Value = registerFile.read2(unJust(decodedInstruction.rs2));
 
                 scoreboard.insert(decodedInstruction.rd);
+
                 $display("%0d,%0d,%0d,%0d,%0d,decode,inserting into scoreboard (new count = %0d): ", 
                     fetchIndex, 
                     cycleCounter, 

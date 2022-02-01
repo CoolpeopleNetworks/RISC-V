@@ -1,3 +1,8 @@
+//
+// RegisterFile
+//
+// This module contains a standard RISC-V register file with dual read ports.
+//
 import RGTypes::*;
 import Vector::*;
 

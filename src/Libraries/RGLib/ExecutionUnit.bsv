@@ -1,3 +1,10 @@
+//
+// ExecutionUnit
+//
+// This module is a RISC-V instruction execution unit.  It is responsible for executing instructions 
+// described by a 'DecodedInstruction' structure resulting in a 'ExecutedInstruction' structure.  The
+// actual execution is handled by the InstructionExecutor module.
+//
 import RGTypes::*;
 
 import ALU::*;
@@ -37,8 +44,8 @@ module mkExecutionUnit#(
         let fetchIndex = decodedInstruction.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 1);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, 1, decodedInstruction.epoch)) begin
-            $display("%0d,%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", fetchIndex, csrFile.cycle_counter, decodedInstruction.epoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().epoch, stageEpoch[1]);
+        if (!pipelineController.isCurrentEpoch(stageNumber, 1, decodedInstruction.pipelineEpoch)) begin
+            $display("%0d,%0d,%0d,%0d,%0d,execute,stale instruction (%0d != %0d)...ignoring", fetchIndex, csrFile.cycle_counter, decodedInstruction.pipelineEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().pipelineEpoch, stageEpoch);
             inputQueue.deq();
         end else begin
             let currentEpoch = stageEpoch;
@@ -72,7 +79,7 @@ module mkExecutionUnit#(
                     pipelineController.flush(1);
 
                     // Bump the current instruction epoch
-                    executedInstruction.epoch = executedInstruction.epoch + 1;
+                    executedInstruction.pipelineEpoch = ~executedInstruction.pipelineEpoch;
 
                     $display("%0d,%0d,%0d,%0d,%0d,execute,branch/jump to: $%08x", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, targetAddress);
                     programCounterRedirect.branch(targetAddress);
