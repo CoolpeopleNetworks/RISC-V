@@ -56,7 +56,8 @@ module mkRG100Core#(
         DebugModule debugModule,
         ProgramCounter initialProgramCounter,
         InstructionMemoryServer instructionMemory,
-        DataMemoryServer dataMemory
+        DataMemoryServer dataMemory,
+        Bool disablePipelining
 )(RG100Core);
     //
     // CoreState
@@ -198,8 +199,7 @@ module mkRG100Core#(
             firstRun <= False;
         end
 
-`ifdef DISABLE_PIPELINING
-        if (!firstRun) begin
+        if (disablePipelining && !firstRun) begin
             let wasRetired = writebackUnit.wasInstructionRetired;
             if (wasRetired) begin
                 fetchEnabled <= True;
@@ -207,7 +207,6 @@ module mkRG100Core#(
                 fetchEnabled <= False;
             end
         end
-`endif
     endrule
 
     rule handleHaltingState(coreState == HALTING);

@@ -47,7 +47,7 @@ module mkFetchUnit#(
 `ifdef DISABLE_BRANCH_PREDICTOR
     BranchPredictor branchPredictor <- mkNullBranchPredictor();
 `else
-    BranchPredictor branchPredictor <- mkBackwareBranchTakenPredictor();
+    BranchPredictor branchPredictor <- mkBackwardBranchTakenPredictor();
 `endif
 
     function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);

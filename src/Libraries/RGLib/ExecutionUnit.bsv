@@ -193,7 +193,8 @@ module mkExecutionUnit#(
                                     let newValue = oldValue | decodedInstruction.rs1Value;
                                     let writeSucceeded <- csrFile.write(currentPrivilegeLevel, decodedInstruction.csrIndex, newValue);
                                 end
-                                $display("CSRRS: $%x (RS1: $x, RD: $x)", decodedInstruction.csrIndex, decodedInstruction.rs1Value, oldValue);
+                                $display("CSRRS: $%x (RS1: $%x, RD: $%x)", decodedInstruction.csrIndex, decodedInstruction.rs1Value, oldValue);
+                                executedInstruction.exception = tagged Invalid;
                             end
                         end
                     endcase

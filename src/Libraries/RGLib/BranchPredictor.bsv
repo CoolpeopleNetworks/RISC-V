@@ -10,7 +10,7 @@ module mkNullBranchPredictor(BranchPredictor);
     endmethod
 endmodule
 
-module mkBackwareBranchTakenPredictor(BranchPredictor);
+module mkBackwardBranchTakenPredictor(BranchPredictor);
     function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);
         Int#(XLEN) offset = unpack(signedOffset);
         return pack(unpack(base) + offset);
