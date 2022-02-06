@@ -9,6 +9,7 @@ import RGTypes::*;
 import ALU::*;
 import CSRFile::*;
 import DecodedInstruction::*;
+import Exception::*;
 import ExecutedInstruction::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
@@ -30,6 +31,7 @@ module mkExecutionUnit#(
     PipelineController pipelineController,
     FIFO#(DecodedInstruction) inputQueue,
     ProgramCounterRedirect programCounterRedirect,
+    Reg#(RVPrivilegeLevel) currentPrivilegeLevel,
     CSRFile csrFile,
     Reg#(Bool) halt
 )(ExecutionUnit);
@@ -88,7 +90,10 @@ module mkExecutionUnit#(
         return pack(unpack(base) + offset);
     endfunction
 
-    function ActionValue#(ExecutedInstruction) executeInstruction(DecodedInstruction decodedInstruction);
+    function ActionValue#(ExecutedInstruction) executeInstruction(
+        DecodedInstruction decodedInstruction,
+        CSRFile csrFile,
+        PipelineEpoch currentEpoch);
         actionvalue
             let executedInstruction = ExecutedInstruction {
                 fetchIndex: decodedInstruction.fetchIndex,
@@ -171,6 +176,30 @@ module mkExecutionUnit#(
                     executedInstruction.exception = tagged Invalid;
                 end
 
+`ifdef EXTENSION_ZICSR
+                CSR: begin
+                    case(decodedInstruction.csrOperator)
+                        pack(CSRRS): begin
+                            let value = csrFile.read(currentPrivilegeLevel, decodedInstruction.csrIndex);
+                            if (isValid(value)) begin
+                                let oldValue = unJust(value);
+                                executedInstruction.writeBack = tagged Valid WriteBack {
+                                    rd: unJust(decodedInstruction.rd),
+                                    value: oldValue
+                                };
+
+                                // Per spec, if RS1 is x0, don't perform any writes to the CSR.
+                                if (unJust(decodedInstruction.rs1) != 0) begin
+                                    let newValue = oldValue | decodedInstruction.rs1Value;
+                                    let writeSucceeded <- csrFile.write(currentPrivilegeLevel, decodedInstruction.csrIndex, newValue);
+                                end
+                                $display("CSRRS: $%x (RS1: $x, RD: $x)", decodedInstruction.csrIndex, decodedInstruction.rs1Value, oldValue);
+                            end
+                        end
+                    endcase
+                end
+`endif
+
                 JUMP: begin
                     dynamicAssert(isValid(decodedInstruction.rd), "JUMP: rd is invalid");
                     dynamicAssert(isValid(decodedInstruction.rs1) == False, "JUMP: rs1 SHOULD BE invalid");
@@ -248,7 +277,18 @@ module mkExecutionUnit#(
                 end
 
                 SYSTEM: begin
-                    executedInstruction.exception = tagged Invalid;
+                    case(decodedInstruction.systemOperator)
+                        pack(ECALL): begin
+                            $display("%0d,%0d,%0d,%0d,%0d,execute,ECALL instruction encountered", decodedInstruction.fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
+                            executedInstruction.exception = tagged Valid Exception {
+                                isInterrupt: False,
+                                cause: tagged Exception ENVIRONMENT_CALL_FROM_M_MODE
+                            };
+                        end
+                        default begin
+                            executedInstruction.exception = tagged Invalid;
+                        end
+                    endcase
                 end
             endcase
             return executedInstruction;
@@ -272,21 +312,7 @@ module mkExecutionUnit#(
             $display("%0d,%0d,%0d,%0d,%0d,execute,RS1: ", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber, (isValid(decodedInstruction.rs1) ? $format("x%0d = %0d ($%0x)", unJust(decodedInstruction.rs1), decodedInstruction.rs1Value, decodedInstruction.rs1Value) : $format("INVALID")));
             $display("%0d,%0d,%0d,%0d,%0d,execute,RS2: ", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber, (isValid(decodedInstruction.rs2) ? $format("x%0d = %0d ($%0x)", unJust(decodedInstruction.rs2), decodedInstruction.rs2Value, decodedInstruction.rs2Value) : $format("INVALID")));
             
-            // Special case handling for specific SYSTEM instructions
-            if (decodedInstruction.opcode == SYSTEM) begin
-                case(decodedInstruction.systemOperator)
-                    pack(ECALL): begin
-                        $display("%0d,%0d,%0d,%0d,%0d,execute,ECALL instruction encountered - HALTED", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
-                        halt <= True;
-                    end
-                    pack(EBREAK): begin
-                        $display("%0d,%0d,%0d,%0d,%0d,execute,EBREAK instruction encountered - HALTED", fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
-                        halt <= True;
-                    end
-                endcase
-            end
-
-            let executedInstruction <- executeInstruction(decodedInstruction);
+            let executedInstruction <- executeInstruction(decodedInstruction, csrFile, currentEpoch);
 
             // If the program counter was changed, see if it matches a predicted branch/jump.
             // If not, redirect the program counter to the mispredicted target address.

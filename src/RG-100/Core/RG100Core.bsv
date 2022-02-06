@@ -1,12 +1,13 @@
 import RGTypes::*;
 
 import CSRFile::*;
-import DataMemory::*;
+import DebugModule::*;
 import DecodeUnit::*;
+import ExceptionController::*;
 import ExecutionUnit::*;
 import FetchUnit::*;
-import InstructionMemory::*;
 import MemoryAccessUnit::*;
+import MemoryInterfaces::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
 import RegisterFile::*;
@@ -19,9 +20,23 @@ import SpecialFIFOs::*;
 
 // ================================================================
 // Exports
-export RG100Core (..), mkRG100Core;
+export CoreState(..), RG100Core (..), mkRG100Core;
+
+//
+// CoreState - roughy follows the RISC-V debug spec for hart states.
+//
+typedef enum {
+    RESET,          // -> STARTING
+    STARTING,       // -> RUNNING
+    RUNNING,        // -> HALTING
+    HALTING,        // -> HALTED
+    HALTED,         // -> RESUMING
+    RESUMING        // -> RUNNING
+} CoreState deriving(Bits, Eq, FShow);
 
 interface RG100Core;
+    method Action start();
+    method CoreState state;
 endinterface
 
 //
@@ -38,10 +53,16 @@ endinterface
 //      - In this stage, computed/fetched values are written back to the register file present in the instruction.
 //
 module mkRG100Core#(
+        DebugModule debugModule,
         ProgramCounter initialProgramCounter,
-        InstructionMemory instructionMemory,
-        DataMemory dataMemory
+        InstructionMemoryServer instructionMemory,
+        DataMemoryServer dataMemory
 )(RG100Core);
+    //
+    // CoreState
+    //
+    Reg#(CoreState) coreState <- mkReg(RESET);
+
     //
     // Cycle counter
     //
@@ -68,6 +89,11 @@ module mkRG100Core#(
     Scoreboard#(4) scoreboard <- mkScoreboard;
 
     //
+    // Exception controller
+    //
+    ExceptionController exceptionController <- mkExceptionController(csrFile);
+
+    //
     // Pipeline stage epochs
     //
     PipelineController pipelineController <- mkPipelineController(6 /* stage count */);
@@ -82,18 +108,10 @@ module mkRG100Core#(
     //
     Reg#(RVPrivilegeLevel) currentPrivilegeLevel <- mkReg(PRIVILEGE_LEVEL_MACHINE);
 
-    Reg#(Bool) started <- mkReg(False);
-
-    (* fire_when_enabled *)
-    rule startup(started == False);
-        $display("FetchIndex,Cycle,Pipeline Epoch,Program Counter,Stage Number,Stage Name,Info");
-        started <= True;
-    endrule
-
     //
     // Stage 1 - Instruction fetch
     //
-    Reg#(Bool) fetchEnabled <- mkReg(True);
+    Reg#(Bool) fetchEnabled <- mkReg(False);
     FetchUnit fetchUnit <- mkFetchUnit(
         cycleCounter,
         1,  // stage number
@@ -124,6 +142,7 @@ module mkRG100Core#(
         pipelineController,
         decodeUnit.getDecodedInstructionQueue,
         programCounterRedirect,
+        currentPrivilegeLevel,
         csrFile,
         halt
     );
@@ -151,20 +170,66 @@ module mkRG100Core#(
         scoreboard,
         registerFile,
         csrFile,
+        exceptionController,
         currentPrivilegeLevel
     );
 
-`ifdef DISABLE_PIPELINING
-    (* fire_when_enabled, no_implicit_conditions *)
-    rule nonPipelinedMode;
-        let wasRetired = writebackUnit.wasInstructionRetired;
-        if (wasRetired) begin
-            fetchEnabled <= True;
-        end else begin
-            fetchEnabled <= False;
-        end
+    //
+    // State handlers
+    //
+    // RESET,          // -> STARTING
+    // STARTING,       // -> RUNNING
+    // RUNNING,        // -> HALTING
+    // HALTING,        // -> HALTED
+    // HALTED,         // -> RESUMING
+    // RESUMING        // -> RUNNING
+    FIFO#(CoreState) stateTransitionQueue <- mkFIFO();
+
+    rule handleStartingState(coreState == STARTING);
+        stateTransitionQueue.enq(RUNNING);
     endrule
+
+    Reg#(Bool) firstRun <- mkReg(True);
+    rule handleRunningState(coreState == RUNNING);
+        if (firstRun) begin
+            $display("FetchIndex,Cycle,Pipeline Epoch,Program Counter,Stage Number,Stage Name,Info");
+
+            fetchEnabled <= True;
+            firstRun <= False;
+        end
+
+`ifdef DISABLE_PIPELINING
+        if (!firstRun) begin
+            let wasRetired = writebackUnit.wasInstructionRetired;
+            if (wasRetired) begin
+                fetchEnabled <= True;
+            end else begin
+                fetchEnabled <= False;
+            end
+        end
 `endif
+    endrule
+
+    rule handleHaltingState(coreState == HALTING);
+        stateTransitionQueue.enq(HALTED);
+    endrule
+
+    rule handleHaltedState(coreState == HALTED);
+        $display("CPU HALTED. Cycles: %0d - Instructions retired: %0d", csrFile.cycle_counter, csrFile.instructions_retired_counter);
+        $finish();
+    endrule
+
+    rule handleResumingState(coreState == RESUMING);
+        stateTransitionQueue.enq(RUNNING);
+    endrule
+
+    (* fire_when_enabled *)
+    rule handleStateTransition;
+        let newState = stateTransitionQueue.first;
+        stateTransitionQueue.deq;
+
+        coreState <= newState;
+    endrule
 
     (* fire_when_enabled, no_implicit_conditions *)
     rule incrementCycleCounter;
@@ -172,11 +237,13 @@ module mkRG100Core#(
         csrFile.increment_cycle_counter();
     endrule
 
-    (* fire_when_enabled, no_implicit_conditions *)
-    rule haltCheck;
-        if (halt) begin
-            $display("CPU HALTED. Cycles: %0d - Instructions retired: %0d", csrFile.cycle_counter, csrFile.instructions_retired_counter);
-            $finish();
+    method Action start;
+        if (coreState == RESET) begin
+            stateTransitionQueue.enq(STARTING);
         end
-    endrule
+    endmethod
+
+    method CoreState state;
+        return coreState;
+    endmethod
 endmodule

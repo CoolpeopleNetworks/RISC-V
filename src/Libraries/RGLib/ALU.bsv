@@ -17,8 +17,8 @@ module mkALU(ALU);
     endfunction
 
     function Word setLessThan(Word operand1, Word operand2);
-        Int#(32) signedOperand1 = unpack(pack(operand1));
-        Int#(32) signedOperand2 = unpack(pack(operand2));
+        Int#(XLEN) signedOperand1 = unpack(pack(operand1));
+        Int#(XLEN) signedOperand2 = unpack(pack(operand2));
         return (signedOperand1 < signedOperand2 ? 1 : 0);
     endfunction
 

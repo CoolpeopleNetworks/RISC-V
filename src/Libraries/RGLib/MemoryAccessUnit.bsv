@@ -8,14 +8,13 @@
 //
 import RGTypes::*;
 
-import DataMemory::*;
 import EncodedInstruction::*;
 import ExecutedInstruction::*;
+import MemoryInterfaces::*;
 import PipelineController::*;
 
 import Assert::*;
 import FIFO::*;
-import GetPut::*;
 import SpecialFIFOs::*;
 
 export MemoryAccessUnit(..), mkMemoryAccessUnit;
@@ -29,7 +28,7 @@ module mkMemoryAccessUnit#(
     Integer stageNumber,
     PipelineController pipelineController,
     FIFO#(ExecutedInstruction) inputQueue,
-    DataMemory dataMemory
+    DataMemoryServer dataMemory
 )(MemoryAccessUnit);
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
@@ -49,7 +48,12 @@ module mkMemoryAccessUnit#(
                 $display("%0d,%0d,%0d,%0d,%0d,memory access,LOAD", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
                 begin
                     // NOTE: Alignment checks were already performed during the execution stage.
-                    dataMemory.request(loadRequest.effectiveAddress, ?, 0);
+                    dataMemory.request.put(MemoryRequest {
+                        write: False,
+                        byteen: ?,
+                        address: loadRequest.effectiveAddress,
+                        data: ?
+                    });
 
                     $display("%0d,%0d,%0d,%0d,%0d,memory access, Loading from $%08x", fetchIndex, cycleCounter, executedInstruction.programCounter, loadRequest.effectiveAddress);
                     instructionWaitingForLoad <= executedInstruction;
@@ -66,9 +70,7 @@ module mkMemoryAccessUnit#(
     endrule
 
     rule handleLoadResponse(waitingForLoadToComplete == True);
-        let memoryResponse = dataMemory.first();
-        dataMemory.deq();
-
+        let memoryResponse <- dataMemory.response.get;
         let executedInstruction = instructionWaitingForLoad;
 
         $display("[%0d:****:memory] Load completed", cycleCounter, executedInstruction.programCounter);
@@ -80,7 +82,7 @@ module mkMemoryAccessUnit#(
         let loadRequest = unJust(executedInstruction.loadRequest);
         executedInstruction.writeBack = tagged Valid WriteBack {
             rd: loadRequest.rd,
-            value: memoryResponse
+            value: memoryResponse.data
         };
 
         inputQueue.deq();

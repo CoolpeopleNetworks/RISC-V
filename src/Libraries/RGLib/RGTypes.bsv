@@ -1,3 +1,6 @@
+import RVTypes::*;
+import Memory::*;
+
 typedef Bit#(XLEN) Word;
 typedef Bit#(32) Word32;
 typedef Bit#(64) Word64;
@@ -12,5 +15,4 @@ typedef Bit#(12) CSRIndex;
 
 typedef TLog#(TDiv#(n,8)) DataSz#(numeric type n);
 
-import RVTypes::*;
-export RVTypes::*, RGTypes::*;
+export Memory::*, RVTypes::*, RGTypes::*;

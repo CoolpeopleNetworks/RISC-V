@@ -6,3 +6,4 @@ enable_testing()
 project(RISC-V BSV)
 
 add_subdirectory(src)
+add_subdirectory(test)

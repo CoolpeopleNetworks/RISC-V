@@ -6,6 +6,8 @@
 import RGTypes::*;
 
 import CSRFile::*;
+import Exception::*;
+import ExceptionController::*;
 import ExecutedInstruction::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
@@ -32,26 +34,27 @@ module mkWritebackUnit#(
     Scoreboard#(4) scoreboard, 
     RegisterFile registerFile,
     CSRFile csrFile,
+    ExceptionController exceptionController,
     Reg#(RVPrivilegeLevel) currentPrivilegeLevel
 )(WritebackUnit);
     Reg#(Bool) instructionRetired <- mkDReg(False);
 
     (* fire_when_enabled *)
     rule writeBack;
-        let memoryAccessCompleteInstruction = inputQueue.first();
-        let fetchIndex = memoryAccessCompleteInstruction.fetchIndex;
+        let executedInstruction = inputQueue.first();
+        let fetchIndex = executedInstruction.fetchIndex;
         let stageEpoch = pipelineController.stageEpoch(stageNumber, 0);
 
-        if (!pipelineController.isCurrentEpoch(stageNumber, 0, memoryAccessCompleteInstruction.pipelineEpoch)) begin
-            $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, memoryAccessCompleteInstruction.pipelineEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().pipelineEpoch, stageEpoch);
+        if (!pipelineController.isCurrentEpoch(stageNumber, 0, executedInstruction.pipelineEpoch)) begin
+            $display("%0d,%0d,%0d,%0d,writeback,stale instruction (%0d != %0d)...ignoring", fetchIndex, cycleCounter, executedInstruction.pipelineEpoch, inputQueue.first().programCounter, stageNumber, inputQueue.first().pipelineEpoch, stageEpoch);
             inputQueue.deq();
         end else begin
             inputQueue.deq();
-            if (memoryAccessCompleteInstruction.writeBack matches tagged Valid .wb) begin
-                $display("%0d,%0d,%0d,%0d,%0d,writeback,writing result ($%08x) to register x%0d", fetchIndex, cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber, wb.value, wb.rd);
+            if (executedInstruction.writeBack matches tagged Valid .wb) begin
+                $display("%0d,%0d,%0d,%0d,%0d,writeback,writing result ($%08x) to register x%0d", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber, wb.value, wb.rd);
                 registerFile.write(wb.rd, wb.value);
             end else begin
-                $display("%0d,%0d,%0d,%0d,%0d,writeback,NO-OP", fetchIndex, cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber);
+                $display("%0d,%0d,%0d,%0d,%0d,writeback,NO-OP", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
             end
 
             scoreboard.remove;
@@ -59,7 +62,7 @@ module mkWritebackUnit#(
             //
             // Handle any exceptions
             //
-            if (memoryAccessCompleteInstruction.exception matches tagged Valid .exception) begin
+            if (executedInstruction.exception matches tagged Valid .exception) begin
                 pipelineController.flush(0);
 
                 Word exceptionCause = ?;
@@ -70,13 +73,14 @@ module mkWritebackUnit#(
                     exceptionCause[valueOf(XLEN)-2:0] = pack(exception.cause.Exception);
                 end
 
-                let exceptionVector <- csrFile.beginException(currentPrivilegeLevel, exception);
-                programCounterRedirect.exception(exceptionVector); 
+                let exceptionVector <- exceptionController.beginException(currentPrivilegeLevel, executedInstruction.programCounter, exception);
 
-                $display("%0d,%0d,%0d,%0d,%0d,writeback,EXCEPTION: %0d - Jumping to $%08x", fetchIndex, cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber, exception.cause, exceptionVector);
-                $fatal();
+                $display("%0d,%0d,%0d,%0d,%0d,writeback,EXCEPTION:", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber, fshow(exception.cause));
+                $display("%0d,%0d,%0d,%0d,%0d,writeback,Jumping to exception handler at $%08x", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber, exceptionVector);
+
+                programCounterRedirect.exception(exceptionVector); 
             end
-            $display("%0d,%0d,%0d,%0d,%0d,writeback,---------------------------", fetchIndex, cycleCounter, stageEpoch, memoryAccessCompleteInstruction.programCounter, stageNumber);
+            $display("%0d,%0d,%0d,%0d,%0d,writeback,---------------------------", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
             csrFile.increment_instructions_retired_counter();
             instructionRetired <= True;
         end

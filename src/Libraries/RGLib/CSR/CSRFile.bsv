@@ -1,10 +1,11 @@
 import RGTypes::*;
 
-import ExecutedInstruction::*;
+import Exception::*;
 import MachineInformation::*;
 import MachineStatus::*;
 import MachineTraps::*;
 
+import Assert::*;
 import RegUtil::*;
 
 typedef enum {
@@ -50,9 +51,6 @@ interface CSRFile;
     method Maybe#(Word) read(RVPrivilegeLevel curPriv, CSRIndex index);
     method ActionValue#(Bool) write(RVPrivilegeLevel curPriv, CSRIndex index, Word value);
 
-    // Exception handling
-    method ActionValue#(ProgramCounter) beginException(RVPrivilegeLevel privilegeLevel, Exception exception);
-
     // Special purpose
     method Word64 cycle_counter;
     method Action increment_cycle_counter;
@@ -85,7 +83,7 @@ module mkCSRFile(CSRFile);
         end else begin
             return case(unpack(index))
                 // Machine Information Registers (MRO)
-                MVENDORID:  tagged Valid machineInformation.mvendorid;
+                MVENDORID:  tagged Valid extend(machineInformation.mvendorid);
                 MARCHID:    tagged Valid machineInformation.marchid;
                 MIMPID:     tagged Valid machineInformation.mimpid;
                 MHARTID:    tagged Valid machineInformation.mhartid;
@@ -103,10 +101,6 @@ module mkCSRFile(CSRFile);
                 default: False;
             endcase;
         end
-    endmethod
-
-    method ActionValue#(ProgramCounter) beginException(RVPrivilegeLevel privilegeLevel, Exception exception);
-        return 'hdeadbeef;
     endmethod
 
     method Word64 cycle_counter;

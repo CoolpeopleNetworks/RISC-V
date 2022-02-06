@@ -1,5 +1,3 @@
-add_subdirectory(tests)
-
 add_library(RG100Core INTERFACE)
 add_library(RG100Core::RG100Core ALIAS RG100Core)
 

@@ -38,7 +38,7 @@ module mkDecodeUnit#(
                 func3 == pack(UNSUPPORTED_LOAD_OPERATOR_110) ||
                 func3 == pack(UNSUPPORTED_LOAD_OPERATOR_111) ? False : True);
 `elsif RV64
-        return (func == pack(UNSUPPORTED_LOAD_OPERATOR_111) ? False : True);
+        return (func3 == pack(UNSUPPORTED_LOAD_OPERATOR_111) ? False : True);
 `else
         return False;
 `endif
@@ -59,11 +59,14 @@ module mkDecodeUnit#(
                 func3 == pack(UNSUPPORTED_BRANCH_OPERATOR_011) ? False : True);
     endfunction
 
-    function DecodedInstruction decodeInstruction(ProgramCounter programCounter, Word instruction);
+    function DecodedInstruction decodeInstruction(ProgramCounter programCounter, Word32 instruction);
         let opcode = instruction[6:0];
         let rd = instruction[11:7];
         let func3 = instruction[14:12];
         let rs1 = instruction[19:15];
+`ifdef EXTENSION_ZICSR
+        let uimm = instruction[19:15];   // same bits as rs1
+`endif
         let rs2 = instruction[24:20];
         let shamt = instruction[24:20];  // same bits as rs2
         let func7 = instruction[31:25];
@@ -78,6 +81,10 @@ module mkDecodeUnit#(
             aluOperator: unpack({func7, func3}),
             loadOperator: unpack(func3),
             storeOperator: unpack(func3),
+`ifdef EXTENSION_ZICSR
+            csrOperator: unpack(func3),
+            csrIndex: {func7, rs2},
+`endif
             branchOperator: ?,
             systemOperator: ?,
             rd: tagged Invalid,
@@ -98,6 +105,16 @@ module mkDecodeUnit#(
                     decodedInstruction.rd = tagged Valid rd;
                     decodedInstruction.rs1 = tagged Valid rs1;
                     decodedInstruction.immediate = tagged Valid immediate31_20;
+                end
+            end
+            //
+            // MISC_MEM
+            //
+            7'b0001111: begin
+                if (func3 == 3'b000) begin
+                    decodedInstruction.opcode = FENCE;
+                    decodedInstruction.rd = tagged Valid rd;
+                    decodedInstruction.rs1 = tagged Valid rs1;
                 end
             end
             //
@@ -125,7 +142,7 @@ module mkDecodeUnit#(
             7'b0010111: begin
                 decodedInstruction.opcode = COPY_IMMEDIATE;
                 decodedInstruction.rd = tagged Valid rd;
-                decodedInstruction.immediate = tagged Valid ({instruction[31:12], 12'b0} + programCounter);
+                decodedInstruction.immediate = tagged Valid (signExtend({instruction[31:12], 12'b0}));
             end
             //
             // STORE
@@ -154,7 +171,7 @@ module mkDecodeUnit#(
             7'b0110111: begin
                 decodedInstruction.opcode = COPY_IMMEDIATE;
                 decodedInstruction.rd = tagged Valid rd;
-                decodedInstruction.immediate = tagged Valid ({instruction[31:12], 12'b0});
+                decodedInstruction.immediate = tagged Valid (signExtend({instruction[31:12], 12'b0}));
             end
             //
             // BRANCH
@@ -168,7 +185,7 @@ module mkDecodeUnit#(
                         instruction[11:8],      // 4 bits
                         1'b0                    // 1 bit
                     });
-                    let branchTarget = programCounter + immediate;
+                    let branchTarget = programCounter + signExtend(immediate);
                     Bool branchDirectionNegative = (msb(immediate) == 1'b1 ? True : False);
                     decodedInstruction.opcode = BRANCH;
                     decodedInstruction.branchOperator = func3;
@@ -204,43 +221,60 @@ module mkDecodeUnit#(
             // SYSTEM
             //
             7'b1110011: begin
-                let systemOperator = instruction[31:7];
-                case(systemOperator)
-                    //
-                    // ECALL
-                    //
-                    25'b0000000_00000_00000_000_00000: begin
-                        decodedInstruction.opcode = SYSTEM;
-                        decodedInstruction.systemOperator = pack(ECALL);
+                case(func3)
+                    3'b000: begin
+                        let systemOperator = instruction[31:7];
+                        case(systemOperator)
+                            //
+                            // ECALL
+                            //
+                            25'b0000000_00000_00000_000_00000: begin
+                                decodedInstruction.opcode = SYSTEM;
+                                decodedInstruction.systemOperator = pack(ECALL);
+                            end
+                            //
+                            // EBREAK
+                            //
+                            25'b0000000_00001_00000_000_00000: begin
+                                decodedInstruction.opcode = SYSTEM;
+                                decodedInstruction.systemOperator = pack(EBREAK);
+                            end
+                            //
+                            // SRET
+                            //
+                            25'b0001000_00010_00000_000_00000: begin
+                                decodedInstruction.opcode = SYSTEM;
+                                decodedInstruction.systemOperator = pack(SRET);
+                            end
+                            //
+                            // MRET
+                            //
+                            25'b0011000_00010_00000_000_00000: begin
+                                decodedInstruction.opcode = SYSTEM;
+                                decodedInstruction.systemOperator = pack(MRET);
+                            end
+                            //
+                            // WFI
+                            //
+                            25'b0001000_00101_00000_000_00000: begin
+                                decodedInstruction.opcode = SYSTEM;
+                                decodedInstruction.systemOperator = pack(WFI);
+                            end
+                        endcase
                     end
-                    //
-                    // EBREAK
-                    //
-                    25'b0000000_00001_00000_000_00000: begin
-                        decodedInstruction.opcode = SYSTEM;
-                        decodedInstruction.systemOperator = pack(EBREAK);
+`ifdef EXTENSION_ZICSR
+                    pack(CSRRW), pack(CSRRS), pack(CSRRC): begin
+                        decodedInstruction.opcode = CSR;
+                        decodedInstruction.rd = tagged Valid rd;
+                        decodedInstruction.rs1 = tagged Valid rs1;
                     end
-                    //
-                    // SRET
-                    //
-                    25'b0001000_00010_00000_000_00000: begin
-                        decodedInstruction.opcode = SYSTEM;
-                        decodedInstruction.systemOperator = pack(SRET);
+
+                    pack(CSRRWI), pack(CSRRSI), pack(CSRRCI): begin
+                        decodedInstruction.opcode = CSR;
+                        decodedInstruction.rd = tagged Valid rd;
+                        decodedInstruction.immediate = tagged Valid extend(uimm);
                     end
-                    //
-                    // MRET
-                    //
-                    25'b0011000_00010_00000_000_00000: begin
-                        decodedInstruction.opcode = SYSTEM;
-                        decodedInstruction.systemOperator = pack(MRET);
-                    end
-                    //
-                    // WFI
-                    //
-                    25'b0001000_00101_00000_000_00000: begin
-                        decodedInstruction.opcode = SYSTEM;
-                        decodedInstruction.systemOperator = pack(WFI);
-                    end
+`endif
                 endcase
             end
         endcase

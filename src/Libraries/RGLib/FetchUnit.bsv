@@ -6,11 +6,13 @@
 //
 import RGTypes::*;
 
+import BranchPredictor::*;
 import EncodedInstruction::*;
-import InstructionMemory::*;
+import MemoryInterfaces::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
 
+import ClientServer::*;
 import FIFO::*;
 import GetPut::*;
 import SpecialFIFOs::*;
@@ -19,6 +21,7 @@ export mkFetchUnit, FetchUnit(..);
 
 typedef struct {
     PipelineEpoch epoch;
+    Word address;
     Word index;     // The fetch index
 } FetchInfo deriving(Bits, Eq, FShow);
 
@@ -31,7 +34,7 @@ module mkFetchUnit#(
     Integer stageNumber,
     ProgramCounter initialProgramCounter,
     ProgramCounterRedirect programCounterRedirect,
-    InstructionMemory instructionMemory,
+    InstructionMemoryServer instructionMemory,
     Reg#(Bool) fetchEnabled
 )(FetchUnit);
     Reg#(Word) fetchCounter <- mkReg(0);
@@ -41,37 +44,15 @@ module mkFetchUnit#(
 
     FIFO#(FetchInfo) fetchInfoQueue <- mkPipelineFIFO(); // holds the fetch info for the current instruction request
 
+`ifdef DISABLE_BRANCH_PREDICTOR
+    BranchPredictor branchPredictor <- mkNullBranchPredictor();
+`else
+    BranchPredictor branchPredictor <- mkBackwareBranchTakenPredictor();
+`endif
+
     function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);
         Int#(XLEN) offset = unpack(signedOffset);
         return pack(unpack(base) + offset);
-    endfunction
-
-    function ProgramCounter predictNextProgramCounter(InstructionMemoryResponse imr);
-`ifdef DISABLE_BRANCH_PREDICTION
-        return imr.address + 4;
-`else
-        let instruction = imr.data;
-        let opcode = instruction[6:0];
-        let predictedProgramCounter = imr.address + 4;
-
-        case(opcode)
-            7'b1100011: begin // BRANCH
-                // If the offset is negative (upper bit set), predict branch taken
-                if (instruction[31] == 1) begin
-                    Word immediate = signExtend({
-                        instruction[31],        // 1 bit
-                        instruction[7],         // 1 bit
-                        instruction[30:25],     // 6 bits
-                        instruction[11:8],      // 4 bits
-                        1'b0                    // 1 bit
-                    });
-
-                    predictedProgramCounter = getEffectiveAddress(imr.address, immediate);
-                end 
-            end
-        endcase
-        return predictedProgramCounter;
-`endif
     endfunction
 
     (* fire_when_enabled *)
@@ -93,12 +74,13 @@ module mkFetchUnit#(
 
         $display("%0d,%0d,%0d,%0d,%0d,fetch send,fetch address: $%08x", fetchCounter, cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
 
-        instructionMemory.request(InstructionMemoryRequest {
+        instructionMemory.request.put(InstructionMemoryRequest {
             address: fetchProgramCounter
         });
 
         fetchInfoQueue.enq(FetchInfo {
             epoch: fetchEpoch,
+            address: fetchProgramCounter,
             index: fetchCounter
         });
 
@@ -107,23 +89,22 @@ module mkFetchUnit#(
 
     (* fire_when_enabled *)
     rule handleFetchResponse;
-        let fetchResponse = instructionMemory.first();
-        instructionMemory.deq();
+        let fetchResponse <- instructionMemory.response.get;
 
         let fetchInfo = fetchInfoQueue.first();
         fetchInfoQueue.deq();
 
-        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchResponse.address, stageNumber, fetchResponse.data);
+        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, fetchResponse.data);
 
         // Predict what the next program counter will be
-        let predictedNextProgramCounter = predictNextProgramCounter(fetchResponse);
-        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,predicted next instruction=$%8x", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchResponse.address, stageNumber, predictedNextProgramCounter);
+        let predictedNextProgramCounter = branchPredictor.predictNextProgramCounter(fetchInfo.address, fetchResponse.data);
+        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,predicted next instruction=$%x", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, predictedNextProgramCounter);
         programCounter[0] <= predictedNextProgramCounter;
 
         // Tell the decode stage what the program counter for the insruction it'll receive.
         outputQueue.enq(EncodedInstruction {
             fetchIndex: fetchInfo.index,
-            programCounter: fetchResponse.address,
+            programCounter: fetchInfo.address,
             predictedNextProgramCounter: predictedNextProgramCounter,
             pipelineEpoch: fetchInfo.epoch,
             rawInstruction: fetchResponse.data

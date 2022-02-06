@@ -52,6 +52,21 @@ typedef enum {
 } RVBranchOperators deriving(Bits, Eq, FShow);
 
 //
+// RVCSROperator(s)
+//
+typedef RVFunc3 RVCSROperator;
+typedef enum {
+    UNSUPPORTED_CSR_OPERATOR_000 = 3'b000,
+    CSRRW  = 3'b001,
+    CSRRS  = 3'b010,
+    CSRRC  = 3'b011,
+    UNSUPPORTED_CSR_OPERATOR_100 = 3'b100,
+    CSRRWI = 3'b101,
+    CSRRSI = 3'b110,
+    CSRRCI = 3'b111
+} RVCSROperators deriving(Bits, Eq, FShow);
+
+//
 // RVExceptionCause(s)
 //
 typedef Bit#(TSub#(XLEN, 2)) RVExceptionCause;

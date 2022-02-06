@@ -1,2 +1,2 @@
-add_subdirectory(Memory)
 add_subdirectory(Core)
+add_subdirectory(Simulator)
