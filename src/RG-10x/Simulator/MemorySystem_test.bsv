@@ -88,12 +88,16 @@ module mkMemorySystem_test(Empty);
 
     rule dataMemoryCheck(testPhase == DATA_MEMORY_READ_TEST && waitingForResponse == True);
         let response <- memorySystem.dataMemory.response.get;
-        if (response.data != addressToCheck) begin
+        if (extend(response.data[31:0]) != addressToCheck) begin
             $display("[Data Memory] FAILED: Request data ($%x) != address to check ($%x)", response.data, addressToCheck);
             $fatal();
         end
 
+`ifdef RV32
         Word expectedLatency = 1;
+`else
+        Word expectedLatency = 4;
+`endif
         let requestLatency = cycleCounter - startCycle;
         if (requestLatency != expectedLatency) begin
             $display("[Data Memory] FAILED: Request latency ($%x) != expected latency ($%x)", requestLatency, expectedLatency);
