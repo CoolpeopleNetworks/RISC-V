@@ -1,4 +1,4 @@
-add_library(RG100Core INTERFACE)
-add_library(RG100Core::RG100Core ALIAS RG100Core)
+add_library(RG10xCore INTERFACE)
+add_library(RG10xCore::RG10xCore ALIAS RG10xCore)
 
-target_include_directories(RG100Core INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(RG10xCore INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")

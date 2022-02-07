@@ -1,14 +1,14 @@
 find_package(BlueCheck)
 
-add_executable(RG100Sim Simulator.bsv)
-target_link_libraries(RG100Sim 
-    RG100Core::RG100Core
+add_executable(RG10xSim Simulator.bsv)
+target_link_libraries(RG10xSim 
+    RG10xCore::RG10xCore
     RVLib::RVLib
     RGLib::RGLib
     RecycleBSVLib::RecycleBSVLib
 )
 
-target_compile_definitions(RG100Sim PUBLIC
+target_compile_definitions(RG10xSim PUBLIC
     ${BASE_ISA}
     EXTENSION_ZICSR
     #DISABLE_BRANCH_PREDICTION

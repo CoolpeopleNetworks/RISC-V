@@ -18,7 +18,7 @@
         },
         {
             "name": "rg101",
-            "displayName": "RG101 (RV32)",
+            "displayName": "RG101 (RV32I)",
             "inherits": "base",
             "cacheVariables": {
                 "BASE_ISA": {
@@ -29,7 +29,7 @@
         },
         {
             "name": "rg103",
-            "displayName": "RG103 (RV64)",
+            "displayName": "RG103 (RV64I)",
             "cacheVariables": {
                 "BASE_ISA": {
                     "type": "STRING",
