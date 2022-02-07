@@ -4,7 +4,7 @@
 // This module is a RISC-V instruction execution unit.  It is responsible for executing instructions 
 // described by a 'DecodedInstruction' structure resulting in a 'ExecutedInstruction' structure. 
 //
-import RGTypes::*;
+`include "RGLib.bsh"
 
 import ALU::*;
 import CSRFile::*;
@@ -83,11 +83,6 @@ module mkExecutionUnit#(
 `else
         return False;
 `endif
-    endfunction
-
-    function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);
-        Int#(XLEN) offset = unpack(signedOffset);
-        return pack(unpack(base) + offset);
     endfunction
 
     function ActionValue#(ExecutedInstruction) executeInstruction(

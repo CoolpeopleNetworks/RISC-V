@@ -4,7 +4,7 @@
 // This module is a RISC-V instruction fetch unit.  It is responsible for fetching instructions 
 // from memory and creating a EncodedInstruction structure representing them.
 //
-import RGTypes::*;
+`include "RGLib.bsh"
 
 import BranchPredictor::*;
 import EncodedInstruction::*;
@@ -49,11 +49,6 @@ module mkFetchUnit#(
 `else
     BranchPredictor branchPredictor <- mkBackwardBranchTakenPredictor();
 `endif
-
-    function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);
-        Int#(XLEN) offset = unpack(signedOffset);
-        return pack(unpack(base) + offset);
-    endfunction
 
     (* fire_when_enabled *)
     rule sendFetchRequest(fetchEnabled == True);

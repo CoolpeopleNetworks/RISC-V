@@ -1,4 +1,4 @@
-import RGTypes::*;
+`include "RGLib.bsh"
 
 interface BranchPredictor;
     method ProgramCounter predictNextProgramCounter(ProgramCounter currentProgramCounter, Word32 instruction);
@@ -11,11 +11,6 @@ module mkNullBranchPredictor(BranchPredictor);
 endmodule
 
 module mkBackwardBranchTakenPredictor(BranchPredictor);
-    function ProgramCounter getEffectiveAddress(Word base, Word signedOffset);
-        Int#(XLEN) offset = unpack(signedOffset);
-        return pack(unpack(base) + offset);
-    endfunction
-
     method ProgramCounter predictNextProgramCounter(ProgramCounter currentProgramCounter, Word32 instruction);
         let opcode = instruction[6:0];
         let predictedProgramCounter = currentProgramCounter + 4;
