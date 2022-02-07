@@ -1,3 +1,8 @@
+//
+// BranchPredictor
+//
+// This module contains a branch predictor interface and several implementation variants.
+//
 `include "RGLib.bsh"
 
 interface BranchPredictor;

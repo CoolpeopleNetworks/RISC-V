@@ -9,11 +9,15 @@ target_link_libraries(RGLib INTERFACE RGLibCSR)
 #
 # Tests
 #
-add_executable(ALU_test ALU_test.bsv)
-target_link_libraries(ALU_test
-    RVLib::RVLib
-)
-add_test(
-    NAME ALU_test
-    COMMAND "${CMAKE_SOURCE_DIR}/cmake/Wrappers/bsvtest" "${CMAKE_CURRENT_BINARY_DIR}/ALU_test" 
-)
+file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*_test.bsv")
+foreach(TEST_FILE ${TEST_FILES})
+    get_filename_component(TEST_TARGET ${TEST_FILE} NAME_WE)
+    add_executable(${TEST_TARGET} ${TEST_FILE})
+    target_link_libraries(${TEST_TARGET}
+        RVLib::RVLib
+    )
+    add_test(
+        NAME ${TEST_TARGET}
+        COMMAND "${CMAKE_SOURCE_DIR}/cmake/Wrappers/bsvtest" "${CMAKE_CURRENT_BINARY_DIR}/${TEST_TARGET}" 
+    )
+endforeach()
