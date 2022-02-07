@@ -1,11 +1,8 @@
 import RGTypes::*;
-
-import DebugModule::*;
 import MemoryInterfaces::*;
-import RegFile::*;
-import RG100Core::*;
-
 import FIFO::*;
+
+export GetPut::*, MemorySystem(..), mkMemorySystemFromFile, MemoryInterfaces::*;
 
 interface MemorySystem;
     interface InstructionMemoryServer instructionMemory;
@@ -21,11 +18,13 @@ typedef struct {
 } WriteData deriving(Bits, Eq);
 `endif
 
-(* synthesize *)
-module mkMemorySystem(MemorySystem);
+module mkMemorySystemFromFile#(
+    Integer sizeInKb,
+    String memoryContents
+)(MemorySystem);
     BRAM_Configure cfg = defaultValue;
-    cfg.memorySize = 1024 * 32;
-    cfg.loadFormat = tagged Hex "InstructionMemory.hex";  //value for loadFormat
+    cfg.memorySize = 1024 * sizeInKb;
+    cfg.loadFormat = tagged Hex memoryContents;
     BRAM2PortBE#(Word32, Word32, 4) bram <- mkBRAM2ServerBE(cfg);
 
     FIFO#(Word) requestAddressQueue <- mkFIFO();
@@ -143,29 +142,4 @@ module mkMemorySystem(MemorySystem);
             endmethod
         endinterface
     endinterface
-endmodule
-
-(* synthesize *)
-module mkSimulator(Empty);
-    // Memory System
-    MemorySystem memorySystem <- mkMemorySystem();
-
-    // Debug Module
-    DebugModule debugModule <- mkDebugModule();
-
-    // Core
-    RG100Core core <- mkRG100Core(debugModule, 0, memorySystem.instructionMemory, memorySystem.dataMemory, True /* Disable Pipelining */);
-
-    Reg#(Bool) initialized <- mkReg(False);
-
-    (* fire_when_enabled *)
-    rule initialization(initialized == False && core.state == RESET);
-        initialized <= True;
-
-        $display("----------------");
-        $display("RG-100 Simulator");
-        $display("----------------");
-
-        core.start();
-    endrule
 endmodule

@@ -1,0 +1,60 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "displayName": "Base Config",
+            "hidden": true,
+            "generator": "Unix Makefiles",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "environment": {
+                "CTEST_OUTPUT_ON_FAILURE": "True"
+            }
+        },
+        {
+            "name": "rg101",
+            "displayName": "RG101 (RV32)",
+            "inherits": "base",
+            "cacheVariables": {
+                "BASE_ISA": {
+                    "type": "STRING",
+                    "value": "RV32"
+                }
+            }
+        },
+        {
+            "name": "rg103",
+            "displayName": "RG103 (RV64)",
+            "cacheVariables": {
+                "BASE_ISA": {
+                    "type": "STRING",
+                    "value": "RV64"
+                }
+            }
+        }
+    ],
+    "buildPresets": [
+      {
+        "name": "default",
+        "configurePreset": "default"
+      }
+    ],
+    "testPresets": [
+      {
+        "name": "default",
+        "configurePreset": "default",
+        "output": {"outputOnFailure": true},
+        "execution": {"noTestsAction": "error", "stopOnFailure": true}
+      }
+    ],
+    "vendor": {
+      "example.com/ExampleIDE/1.0": {
+        "autoFormat": false
+      }
+    }
+  }

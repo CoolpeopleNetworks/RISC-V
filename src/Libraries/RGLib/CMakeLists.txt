@@ -14,6 +14,6 @@ target_link_libraries(ALU_test
     RVLib::RVLib
 )
 add_test(
-    NAME ALU_test 
+    NAME ALU_test
     COMMAND "${CMAKE_SOURCE_DIR}/cmake/Wrappers/bsvtest" "${CMAKE_CURRENT_BINARY_DIR}/ALU_test" 
 )
