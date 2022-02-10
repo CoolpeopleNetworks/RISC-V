@@ -1,6 +1,7 @@
 import RGTypes::*;
 
 import CSRFile::*;
+import Exception::*;
 import ExceptionController::*;
 
 import Assert::*;
@@ -20,13 +21,15 @@ module mkExceptionController_test(Empty);
     CSRFile csrFile <- mkCSRFile();
     ExceptionController exceptionController <- mkExceptionController(csrFile);
 
-    Word exceptionVector = 'h8000;
+    Word actualExceptionVector = 'h8000;
+    ProgramCounter exceptionProgramCounter = 'h4000;
+    RVExceptionCause exceptionCause = extend(pack(ILLEGAL_INSTRUCTION));
 
     rule init(state == INIT);
-        let succeeded <- csrFile.write0(PRIVILEGE_LEVEL_USER, pack(MTVEC), exceptionVector);
+        let succeeded <- csrFile.write0(PRIVILEGE_LEVEL_USER, pack(MTVEC), actualExceptionVector);
         dynamicAssert(succeeded == False, "Attempt to write MTVEC in user mode should fail.");
 
-        succeeded <- csrFile.write0(PRIVILEGE_LEVEL_MACHINE, pack(MTVEC), exceptionVector);
+        succeeded <- csrFile.write0(PRIVILEGE_LEVEL_MACHINE, pack(MTVEC), actualExceptionVector);
         dynamicAssert(succeeded == True, "Attempt to write MTVEC in machine mode should succeed.");
         state <= VERIFY_INIT;
     endrule
@@ -34,23 +37,40 @@ module mkExceptionController_test(Empty);
     rule verifyInit(state == VERIFY_INIT);
         let result = csrFile.read0(PRIVILEGE_LEVEL_MACHINE, pack(MTVEC));
         dynamicAssert(isValid(result), "Reading MTVEC in machine mode should succeed.");
-        dynamicAssert(unJust(result) == exceptionVector, "Reading MTVEC should contain value written");
+        dynamicAssert(unJust(result) == actualExceptionVector, "Reading MTVEC should contain value written");
 
         state <= TEST;
     endrule
 
     rule beginException(state == TEST);
-        //let receivedExceptionVector <- exceptionController.beginException(PRIVILEGE_LEVEL_USER, 'h4000, )
+        Exception exception = tagged ExceptionCause exceptionCause;
+        let receivedExceptionVector <- exceptionController.beginException(PRIVILEGE_LEVEL_USER, exceptionProgramCounter, exception);
+        dynamicAssert(receivedExceptionVector == actualExceptionVector, "Exception Vector isn't correct.");
 
         state <= VERIFY_TEST;
     endrule
 
     rule endException(state == VERIFY_TEST);
+        let mtvec = csrFile.read0(PRIVILEGE_LEVEL_MACHINE, pack(MTVEC));
+        dynamicAssert(isValid(mtvec), "Reading MTVEC in machine mode should succeed.");
+        dynamicAssert(unJust(mtvec) == actualExceptionVector, "Reading MTVEC should contain value written");
+
+        let mecpc = csrFile.read0(PRIVILEGE_LEVEL_MACHINE, pack(MEPC));
+        dynamicAssert(isValid(mecpc), "Reading MEPC in machine mode should succeed.");
+        dynamicAssert(unJust(mecpc) == exceptionProgramCounter, "Reading MEPC should contain value written");
+
+        let mcause = csrFile.read0(PRIVILEGE_LEVEL_MACHINE, pack(MCAUSE));
+        dynamicAssert(isValid(mcause), "Reading MCAUSE in machine mode should succeed.");
+
+        Exception exceptionActual = tagged ExceptionCause exceptionCause;
+        let mcauseActual = getMCAUSE(exceptionActual);
+        dynamicAssert(unJust(mcause) == mcauseActual, "Reading MCAUSE should contain value written");
+
         state <= COMPLETE;
     endrule
 
     rule complete(state == COMPLETE);
-        $display("--- NOT IMPLEMENTED");
+        $display("--- PASS");
         $finish();
     endrule
 endmodule
