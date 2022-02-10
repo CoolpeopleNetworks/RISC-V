@@ -1,4 +1,6 @@
 import RGTypes::*;
+import BRAMServerTile::*;
+import MemorySystem::*;
 
 import DebugModule::*;
 import RegFile::*;
@@ -7,8 +9,11 @@ import MemorySystem::*;
 
 (* synthesize *)
 module mkSimulator(Empty);
+    // BRAM Server Tile
+    DualPortBRAMServerTile memory <- mkBRAMServerTileFromFile(32, "MemoryContents.hex");
+
     // Memory System
-    MemorySystem memorySystem <- mkMemorySystemFromFile(32, "MemoryContents.hex");
+    MemorySystem memorySystem <- mkMemorySystem(memory);
 
     // Debug Module
     DebugModule debugModule <- mkDebugModule();

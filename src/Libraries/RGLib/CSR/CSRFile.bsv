@@ -139,7 +139,7 @@ module mkCSRFile(CSRFile);
     Reg#(Word)      minstreth   = readOnlyReg(truncateLSB(instructionsRetiredCounter));
 `endif
     Reg#(Word)      mcause[2]   <- mkCReg(2, 0);
-    Reg#(Word)      mtvec[2]    <- mkCReg(2, 0);
+    Reg#(Word)      mtvec[2]    <- mkCReg(2, 'hC0DEC0DE);
     Reg#(Word)      mepc[2]     <- mkCReg(2, 0);    // Machine Exception Program Counter
 
     function Maybe#(Word) read(RVPrivilegeLevel curPriv, CSRIndex index, Integer portNumber);

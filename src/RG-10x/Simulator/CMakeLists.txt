@@ -5,6 +5,7 @@ target_link_libraries(RG10xSim
     RG10xCore::RG10xCore
     RVLib::RVLib
     RGLib::RGLib
+    RGTiles::RGTiles
 )
 
 target_compile_definitions(RG10xSim PUBLIC
@@ -22,6 +23,7 @@ target_compile_definitions(MemorySystem_test PUBLIC
 target_link_libraries(MemorySystem_test
     RVLib::RVLib
     RGLib::RGLib
+    RGTiles::RGTiles
 )
 add_test(
     NAME MemorySystem_test

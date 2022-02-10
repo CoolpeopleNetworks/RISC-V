@@ -1,5 +1,8 @@
 import RGTypes::*;
 import MemorySystem::*;
+import BRAMServerTile::*;
+
+import Assert::*;
 
 typedef enum {
     INSTRUCTION_MEMORY_TEST_SETUP,
@@ -11,7 +14,11 @@ typedef enum {
 
 (* synthesize *)
 module mkMemorySystem_test(Empty);
-    MemorySystem memorySystem <- mkMemorySystemFromFile(4, "MemorySystem_test.hex");
+    // BRAM Server Tile
+    DualPortBRAMServerTile memory <- mkBRAMServerTileFromFile(32, "MemorySystem_test.hex");
+
+    // Memory System
+    MemorySystem memorySystem <- mkMemorySystem(memory);
 
     Reg#(TestPhase) testPhase <- mkReg(INSTRUCTION_MEMORY_TEST_SETUP);
     Reg#(Word) addressToCheck <- mkReg(0);
@@ -32,7 +39,14 @@ module mkMemorySystem_test(Empty);
     rule instructionMemoryRequest(testPhase == INSTRUCTION_MEMORY_TEST && waitingForResponse == False);
         $display("[Instruction Memory] Requesting value from $%x", addressToCheck);
         memorySystem.instructionMemory.request.put(InstructionMemoryRequest {
-            address: addressToCheck
+            a_opcode: pack(A_GET),
+            a_param: 0,
+            a_size: 1,
+            a_source: 0,
+            a_address: addressToCheck,
+            a_mask: 4'b1111,
+            a_data: ?,
+            a_corrupt: False
         });
         startCycle <= cycleCounter;
         waitingForResponse <= True;
@@ -41,17 +55,16 @@ module mkMemorySystem_test(Empty);
     (* fire_when_enabled *) //descending_urgency="incrementCycleCounter, request, check" *)
     rule instructionMemoryCheck(testPhase == INSTRUCTION_MEMORY_TEST && waitingForResponse == True);
         let response <- memorySystem.instructionMemory.response.get;
-        if (response.address != addressToCheck) begin
-            $display("[Instruction Memory] FAILED: Request address ($%x) != address to check ($%x)", response.address, addressToCheck);
-            $fatal();
-        end
+        dynamicAssert(response.d_opcode == pack(D_ACCESS_ACK_DATA), "[Instruction Memory] FAILED: Incorrect d_opcode");
+        dynamicAssert(response.d_param == 0, "[Instruction Memory] FAILED: Incorrect d_param");
+        dynamicAssert(response.d_size == 1, "[Instruction Memory] FAILED: Incorrect d_size");
+        dynamicAssert(response.d_source == 0, "[Instruction Memory] FAILED: Incorrect d_source");
+        dynamicAssert(response.d_sink == 0, "[Instruction Memory] FAILED: Incorrect d_sink");
+        dynamicAssert(response.d_denied == False, "[Instruction Memory] FAILED: Incorrect d_denied");
+        dynamicAssert(response.d_data == truncate(addressToCheck), "[Instruction Memory] FAILED: Incorrect d_data");
+        dynamicAssert(response.d_corrupt == False, "[Instruction Memory] FAILED: Incorrect d_corrupt");
 
-        if (response.data != truncate(addressToCheck)) begin
-            $display("[Instruction Memory] FAILED: Request data ($%x) != address to check ($%x)", response.data, addressToCheck);
-            $fatal();
-        end
-
-        Word expectedLatency = 1;
+        Word expectedLatency = 3;
         let requestLatency = cycleCounter - startCycle;
         if (requestLatency != expectedLatency) begin
             $display("[Instruction Memory] FAILED: Request latency ($%x) != expected latency ($%x)", requestLatency, expectedLatency);
@@ -76,31 +89,41 @@ module mkMemorySystem_test(Empty);
     (* fire_when_enabled *)
     rule dataMemoryReadRequest(testPhase == DATA_MEMORY_READ_TEST && waitingForResponse == False);
         $display("[Data Memory] Requesting value from $%x", addressToCheck);
-        memorySystem.dataMemory.request.put(MemoryRequest {
-            write: False,
-            byteen: 0,
-            address: addressToCheck,
-            data: ?
+        memorySystem.dataMemory.request.put(DataMemoryRequest {
+            a_opcode: pack(A_GET),
+            a_param: 0,
+            a_size: 1,
+            a_source: 0,
+            a_address: addressToCheck,
+            a_mask: 4'b1111,
+            a_data: ?,
+            a_corrupt: False
         });
+
         startCycle <= cycleCounter;
         waitingForResponse <= True;
     endrule
 
     rule dataMemoryCheck(testPhase == DATA_MEMORY_READ_TEST && waitingForResponse == True);
         let response <- memorySystem.dataMemory.response.get;
-        if (extend(response.data[31:0]) != addressToCheck) begin
-            $display("[Data Memory] FAILED: Request data ($%x) != address to check ($%x)", response.data, addressToCheck);
-            $fatal();
-        end
+        dynamicAssert(response.d_opcode == pack(D_ACCESS_ACK_DATA), "[Data Memory] FAILED: Incorrect d_opcode");
+        dynamicAssert(response.d_param == 0, "[Data Memory] FAILED: Incorrect d_param");
+        dynamicAssert(response.d_size == 1, "[Data Memory] FAILED: Incorrect d_size");
+        dynamicAssert(response.d_source == 0, "[Data Memory] FAILED: Incorrect d_source");
+        dynamicAssert(response.d_sink == 0, "[Data Memory] FAILED: Incorrect d_sink");
+        dynamicAssert(response.d_denied == False, "[Data Memory] FAILED: Incorrect d_denied");
+        dynamicAssert(response.d_data == truncate(addressToCheck), "[Data Memory] FAILED: Incorrect d_data");
+        dynamicAssert(response.d_corrupt == False, "[Data Memory] FAILED: Incorrect d_corrupt");
 
-`ifdef RV32
-        Word expectedLatency = 1;
-`else
-        Word expectedLatency = 4;
-`endif
+        Word expectedLatency = 3;
         let requestLatency = cycleCounter - startCycle;
         if (requestLatency != expectedLatency) begin
             $display("[Data Memory] FAILED: Request latency ($%x) != expected latency ($%x)", requestLatency, expectedLatency);
+            $fatal();
+        end
+
+        if (extend(response.d_data) != addressToCheck) begin
+            $display("[Data Memory] FAILED: Request data ($%x) != address to check ($%x)", response.d_data, addressToCheck);
             $fatal();
         end
 

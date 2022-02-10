@@ -70,7 +70,14 @@ module mkFetchUnit#(
         $display("%0d,%0d,%0d,%0d,%0d,fetch send,fetch address: $%08x", fetchCounter, cycleCounter, fetchEpoch, fetchProgramCounter, stageNumber, fetchProgramCounter);
 
         instructionMemory.request.put(InstructionMemoryRequest {
-            address: fetchProgramCounter
+            a_opcode: pack(A_GET),
+            a_param: 0,
+            a_size: 1,
+            a_source: 0,
+            a_address: fetchProgramCounter,
+            a_mask: 'hF,
+            a_data: ?,
+            a_corrupt: False
         });
 
         fetchInfoQueue.enq(FetchInfo {
@@ -89,21 +96,32 @@ module mkFetchUnit#(
         let fetchInfo = fetchInfoQueue.first();
         fetchInfoQueue.deq();
 
-        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, fetchResponse.data);
+        if (fetchResponse.d_denied) begin
+            $display("%0d,%0d,%0d,%0d,%0d,fetch receive,FATAL - received access denied from memory system.", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber);
+            $fatal();
+        end else if (fetchResponse.d_corrupt) begin
+            $display("%0d,%0d,%0d,%0d,%0d,fetch receive,FATAL - received corrupted data from memory system.", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber);
+            $fatal();
+        end else if (fetchResponse.d_opcode != pack(D_ACCESS_ACK_DATA)) begin
+            $display("%0d,%0d,%0d,%0d,%0d,fetch receive,FATAL - received unexpected opcode from memory system: ", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, fshow(fetchResponse.d_opcode));
+            $fatal();
+        end else begin
+            $display("%0d,%0d,%0d,%0d,%0d,fetch receive,encoded instruction=%08h", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, fetchResponse.d_data);
 
-        // Predict what the next program counter will be
-        let predictedNextProgramCounter = branchPredictor.predictNextProgramCounter(fetchInfo.address, fetchResponse.data);
-        $display("%0d,%0d,%0d,%0d,%0d,fetch receive,predicted next instruction=$%x", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, predictedNextProgramCounter);
-        programCounter[0] <= predictedNextProgramCounter;
+            // Predict what the next program counter will be
+            let predictedNextProgramCounter = branchPredictor.predictNextProgramCounter(fetchInfo.address, fetchResponse.d_data);
+            $display("%0d,%0d,%0d,%0d,%0d,fetch receive,predicted next instruction=$%x", fetchInfo.index, cycleCounter, fetchInfo.epoch, fetchInfo.address, stageNumber, predictedNextProgramCounter);
+            programCounter[0] <= predictedNextProgramCounter;
 
-        // Tell the decode stage what the program counter for the insruction it'll receive.
-        outputQueue.enq(EncodedInstruction {
-            fetchIndex: fetchInfo.index,
-            programCounter: fetchInfo.address,
-            predictedNextProgramCounter: predictedNextProgramCounter,
-            pipelineEpoch: fetchInfo.epoch,
-            rawInstruction: fetchResponse.data
-        });
+            // Tell the decode stage what the program counter for the insruction it'll receive.
+            outputQueue.enq(EncodedInstruction {
+                fetchIndex: fetchInfo.index,
+                programCounter: fetchInfo.address,
+                predictedNextProgramCounter: predictedNextProgramCounter,
+                pipelineEpoch: fetchInfo.epoch,
+                rawInstruction: fetchResponse.d_data
+            });
+        end
     endrule
 
     interface FIFO getEncodedInstructionQueue = outputQueue;

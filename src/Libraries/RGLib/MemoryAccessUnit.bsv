@@ -48,11 +48,15 @@ module mkMemoryAccessUnit#(
                 $display("%0d,%0d,%0d,%0d,%0d,memory access,LOAD", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);
                 begin
                     // NOTE: Alignment checks were already performed during the execution stage.
-                    dataMemory.request.put(MemoryRequest {
-                        write: False,
-                        byteen: ?,
-                        address: loadRequest.effectiveAddress,
-                        data: ?
+                    dataMemory.request.put(DataMemoryRequest {
+                        a_opcode: pack(A_GET),
+                        a_param: 0,
+                        a_size: 1,
+                        a_source: 0,
+                        a_address: loadRequest.effectiveAddress,
+                        a_mask: 4'hF,
+                        a_data: ?,
+                        a_corrupt: False
                     });
 
                     $display("%0d,%0d,%0d,%0d,%0d,memory access, Loading from $%08x", fetchIndex, cycleCounter, executedInstruction.programCounter, loadRequest.effectiveAddress);
@@ -77,12 +81,27 @@ module mkMemoryAccessUnit#(
 
         waitingForLoadToComplete <= False;
 
+        if (memoryResponse.d_opcode != pack(D_ACCESS_ACK_DATA)) begin
+            $display("[%0d:****:memory] FATAL - Load returned unexpected opcode: ", fshow(memoryResponse));
+            $fatal();
+        end
+
+        if (memoryResponse.d_denied) begin
+            $display("[%0d:****:memory] FATAL - Load returned access denied: ", fshow(memoryResponse));
+            $fatal();
+        end
+
+        if (memoryResponse.d_corrupt) begin
+            $display("[%0d:****:memory] FATAL - Load returned access corrupted: ", fshow(memoryResponse));
+            $fatal();
+        end
+
         // Save the data that will be written back into the register file on the
         // writeback pipeline stage.
         let loadRequest = unJust(executedInstruction.loadRequest);
         executedInstruction.writeBack = tagged Valid WriteBack {
             rd: loadRequest.rd,
-            value: memoryResponse.data
+            value: memoryResponse.d_data
         };
 
         inputQueue.deq();
