@@ -64,9 +64,7 @@ module mkDecodeUnit#(
         let rd = instruction[11:7];
         let func3 = instruction[14:12];
         let rs1 = instruction[19:15];
-`ifdef EXTENSION_ZICSR
         let uimm = instruction[19:15];   // same bits as rs1
-`endif
         let rs2 = instruction[24:20];
         let shamt = instruction[24:20];  // same bits as rs2
         let func7 = instruction[31:25];
@@ -81,10 +79,8 @@ module mkDecodeUnit#(
             aluOperator: unpack({func7, func3}),
             loadOperator: unpack(func3),
             storeOperator: unpack(func3),
-`ifdef EXTENSION_ZICSR
             csrOperator: unpack(func3),
             csrIndex: {func7, rs2},
-`endif
             branchOperator: ?,
             systemOperator: ?,
             rd: tagged Invalid,
@@ -262,7 +258,10 @@ module mkDecodeUnit#(
                             end
                         endcase
                     end
-`ifdef EXTENSION_ZICSR
+
+                    //
+                    // CSR operations
+                    //
                     pack(CSRRW), pack(CSRRS), pack(CSRRC): begin
                         decodedInstruction.opcode = CSR;
                         decodedInstruction.rd = tagged Valid rd;
@@ -274,7 +273,6 @@ module mkDecodeUnit#(
                         decodedInstruction.rd = tagged Valid rd;
                         decodedInstruction.immediate = tagged Valid extend(uimm);
                     end
-`endif
                 endcase
             end
         endcase

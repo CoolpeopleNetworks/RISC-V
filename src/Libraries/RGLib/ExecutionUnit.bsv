@@ -165,7 +165,6 @@ module mkExecutionUnit#(
                     executedInstruction.exception = tagged Invalid;
                 end
 
-`ifdef EXTENSION_ZICSR
                 CSR: begin
                     case(decodedInstruction.csrOperator)
                         pack(CSRRS): begin
@@ -193,7 +192,6 @@ module mkExecutionUnit#(
                         end
                     endcase
                 end
-`endif
 
                 JUMP: begin
                     dynamicAssert(isValid(decodedInstruction.rd), "JUMP: rd is invalid");

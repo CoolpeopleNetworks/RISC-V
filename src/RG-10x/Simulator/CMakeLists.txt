@@ -9,7 +9,6 @@ target_link_libraries(RG10xSim
 
 target_compile_definitions(RG10xSim PUBLIC
     ${BASE_ISA}
-    EXTENSION_ZICSR
     #DISABLE_BRANCH_PREDICTION
 )
 

@@ -14,10 +14,8 @@ typedef enum {
     // Copies immediate value to destination register (used by LUI and AUIPC instructions).
     COPY_IMMEDIATE,
 
-`ifdef EXTENSION_ZICSR
     // Operations pertaining to Control Status Registers (CSRs)
     CSR,
-`endif
 
     // Memory ordering (fences)
     FENCE,
@@ -84,14 +82,12 @@ typedef struct {
     //                  field is determined by 'opcode'.)
     RVSystemOperator systemOperator;
 
-`ifdef EXTENSION_ZICSR
     // csrOperator - The CSR operator (if any) corresponding to this instruction  (validity of this
     //               field is determined by 'opcode'.)
     RVCSROperator csrOperator;
 
     // csrIndex - The CSR index corresponding to this instruction.
     CSRIndex csrIndex;
-`endif
 
     // rd - The *destination* register (if any) corresponding to this instruction.
     Maybe#(RegisterIndex) rd;
