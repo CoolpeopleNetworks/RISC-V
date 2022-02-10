@@ -97,10 +97,7 @@ module mkExecutionUnit#(
                 changedProgramCounter: tagged Invalid,
                 loadRequest: tagged Invalid,
                 storeRequest: tagged Invalid,
-                exception: tagged Valid Exception {
-                    isInterrupt: False,
-                    cause: tagged Exception ILLEGAL_INSTRUCTION
-                },
+                exception: tagged Valid tagged ExceptionCause extend(pack(ILLEGAL_INSTRUCTION)),
                 writeBack: tagged Invalid
             };
 
@@ -139,10 +136,7 @@ module mkExecutionUnit#(
                             let branchTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
                             // Branch target must be 32 bit aligned.
                             if (branchTarget[1:0] != 0) begin
-                                executedInstruction.exception = tagged Valid Exception {
-                                    isInterrupt: False,
-                                    cause: tagged Exception INSTRUCTION_ADDRESS_MISALIGNED
-                                };
+                                executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(INSTRUCTION_ADDRESS_MISALIGNED));
                             end else begin
                                 // Target address aligned
                                 executedInstruction.exception = tagged Invalid;
@@ -175,7 +169,7 @@ module mkExecutionUnit#(
                 CSR: begin
                     case(decodedInstruction.csrOperator)
                         pack(CSRRS): begin
-                            let value = csrFile.read(currentPrivilegeLevel, decodedInstruction.csrIndex);
+                            let value = csrFile.read1(currentPrivilegeLevel, decodedInstruction.csrIndex);
                             if (isValid(value)) begin
                                 let oldValue = unJust(value);
                                 executedInstruction.writeBack = tagged Valid WriteBack {
@@ -186,8 +180,13 @@ module mkExecutionUnit#(
                                 // Per spec, if RS1 is x0, don't perform any writes to the CSR.
                                 if (unJust(decodedInstruction.rs1) != 0) begin
                                     let newValue = oldValue | decodedInstruction.rs1Value;
-                                    let writeSucceeded <- csrFile.write(currentPrivilegeLevel, decodedInstruction.csrIndex, newValue);
+                                    let writeStatus <- csrFile.write1(currentPrivilegeLevel, decodedInstruction.csrIndex, newValue);
+                                    if (writeStatus == False) begin
+                                        executedInstruction.writeBack = tagged Invalid;
+                                        executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(ILLEGAL_INSTRUCTION));
+                                    end
                                 end
+
                                 $display("CSRRS: $%x (RS1: $%x, RD: $%x)", decodedInstruction.csrIndex, decodedInstruction.rs1Value, oldValue);
                                 executedInstruction.exception = tagged Invalid;
                             end
@@ -204,10 +203,7 @@ module mkExecutionUnit#(
                     
                     let jumpTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
                     if (jumpTarget[1:0] != 0) begin
-                        executedInstruction.exception = tagged Valid Exception {
-                            isInterrupt: False,
-                            cause: tagged Exception INSTRUCTION_ADDRESS_MISALIGNED
-                        };
+                        executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(INSTRUCTION_ADDRESS_MISALIGNED));
                     end else begin
                         executedInstruction.changedProgramCounter = tagged Valid jumpTarget;
                         executedInstruction.writeBack = tagged Valid WriteBack {
@@ -228,10 +224,7 @@ module mkExecutionUnit#(
                     jumpTarget[0] = 0;
 
                     if (jumpTarget[1:0] != 0) begin
-                        executedInstruction.exception = tagged Valid Exception {
-                            isInterrupt: False,
-                            cause: tagged Exception INSTRUCTION_ADDRESS_MISALIGNED
-                        };
+                        executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(INSTRUCTION_ADDRESS_MISALIGNED));
                     end else begin
                         executedInstruction.changedProgramCounter = tagged Valid jumpTarget;
                         executedInstruction.writeBack = tagged Valid WriteBack {
@@ -276,10 +269,7 @@ module mkExecutionUnit#(
                     case(decodedInstruction.systemOperator)
                         pack(ECALL): begin
                             $display("%0d,%0d,%0d,%0d,%0d,execute,ECALL instruction encountered", decodedInstruction.fetchIndex, csrFile.cycle_counter, currentEpoch, decodedInstruction.programCounter, stageNumber);
-                            executedInstruction.exception = tagged Valid Exception {
-                                isInterrupt: False,
-                                cause: tagged Exception ENVIRONMENT_CALL_FROM_M_MODE
-                            };
+                            executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(ENVIRONMENT_CALL_FROM_M_MODE));
                         end
                         default begin
                             executedInstruction.exception = tagged Invalid;
@@ -333,7 +323,7 @@ module mkExecutionUnit#(
                 // Note: any exceptions are passed through until handled inside the writeback
                 // stage.
                 if (executedInstruction.exception matches tagged Valid .exception) begin
-                    $display("%0d,%0d,%0d,%0d,%0d,execute,EXCEPTION:", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, fshow(exception.cause));
+                    $display("%0d,%0d,%0d,%0d,%0d,execute,EXCEPTION:", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber, fshow(exception));
                 end else begin
                     $display("%0d,%0d,%0d,%0d,%0d,execute,complete", fetchIndex, cycleCounter, currentEpoch, decodedInstruction.programCounter, stageNumber);
                 end

@@ -15,6 +15,7 @@ foreach(TEST_FILE ${TEST_FILES})
     add_executable(${TEST_TARGET} ${TEST_FILE})
     target_link_libraries(${TEST_TARGET}
         RVLib::RVLib
+        RGLibCSR::RGLibCSR
     )
     add_test(
         NAME ${TEST_TARGET}

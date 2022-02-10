@@ -5,7 +5,6 @@ target_link_libraries(RG10xSim
     RG10xCore::RG10xCore
     RVLib::RVLib
     RGLib::RGLib
-    RecycleBSVLib::RecycleBSVLib
 )
 
 target_compile_definitions(RG10xSim PUBLIC

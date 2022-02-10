@@ -1,5 +1,45 @@
 import ClientServer::*;
 
+/*
+    TileLink Operation Categories
+        Accesses (A)  - read and/or write the data at the specified address
+        Hints (H)     - are informational only and have no direct effects
+        Transfers (T) - move permissions or cached copies of data through the network.
+
+    TileLine Operations
+
+    Operation       Type        TL-UL   TL-UH   TL-C    Purpose
+    -----------------------------------------------------------
+    Get             A           Y       Y       Y       Read from and address range
+    Put             A           Y       Y       Y       Write to an address range
+    Atomic          A                   Y       Y       Read-modify-write an address range
+    Intent          H                   Y       Y       Advance notification of likely future operations
+    Acquire         T                           Y       Cache a copy of an address range or increase permissions of that copy
+    Release         T                           Y       Write-back a cached copy of an address range or relinquish permissions to a cached copy
+*/
+
+// ChannelAOpcodes - Requests (responses on Channel D)
+typedef enum {
+    A_PUT_FULL_DATA     = 3'h0, // Put      - Response: D_ACCESS_ACK
+    A_PUT_PARTIAL_DATA  = 3'h1, // Put      - Response: D_ACCESS_ACK
+    A_ARITHMETIC_DATA   = 3'h2, // Atomic   - Response: D_ACCESS_ACK_DATA
+    A_LOGICAL_DATA      = 3'h3, // Atomic   - Response: D_ACCESS_ACK_DATA
+    A_GET               = 3'h4, // Get      - Response: D_ACCESS_ACK_DATA
+    A_INTENT            = 3'h5, // Intent   - Response: D_HINT_ACK
+    A_ACQUIRE_BLOCK     = 3'h6, // Acquire  - Response: D_GRANT, D_GRANT_DATA
+    A_ACQUIRE_PERM      = 3'h7  // Acquire  - Response: D_GRANT
+} ChannelAOpcodes deriving(Bits, Eq, FShow);
+
+// ChannelDOpcodes - Responses (resquests on Channel A)
+typedef enum {
+    D_ACCESS_ACK        = 3'h0, // Put
+    D_ACCESS_ACK_DATA   = 3'h1, // Get or Atomic
+    D_HINT_ACK          = 3'h2, // Intent
+    D_GRANT             = 3'h4, // Acquire
+    D_GRANT_DATA        = 3'h5, // Acquire
+    D_RELEASE_ACK       = 3'h6  // Release
+} ChannelDOpcodes deriving(Bits, Eq, FShow);
+
 typedef struct {
     (* always_ready, result="a_opcode" *)   Bit#(3) a_opcode;
     (* always_ready, result="a_param" *)    Bit#(3) a_param;

@@ -69,7 +69,7 @@ typedef enum {
 //
 // RVExceptionCause(s)
 //
-typedef Bit#(TSub#(XLEN, 2)) RVExceptionCause;
+typedef Bit#(TSub#(XLEN, 1)) RVExceptionCause;
 typedef enum {
     INSTRUCTION_ADDRESS_MISALIGNED = 0,
     INSTRUCTION_ACCESS_FAULT = 1,
@@ -97,7 +97,7 @@ typedef enum {
 //
 // RVInterruptCause(s)
 //
-typedef Bit#(TSub#(XLEN, 2)) RVInterruptCause;
+typedef Bit#(TSub#(XLEN, 1)) RVInterruptCause;
 typedef enum {
     // RESERVED = 0
     SUPERVISOR_SOFTWARE_INTERRUPT = 1,

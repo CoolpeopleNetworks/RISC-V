@@ -65,6 +65,6 @@ typedef struct {
     // storeRequest - The store request (if any) of the executed instruction.
     Maybe#(StoreRequest) storeRequest;
 
-    // writeBack - The data to be written by to the register file (if any) for the instruction.
+    // writeBack - The data to be written to the register file (if any) for the instruction.
     Maybe#(WriteBack) writeBack;
 } ExecutedInstruction deriving(Bits, Eq, FShow);

@@ -65,17 +65,9 @@ module mkWritebackUnit#(
             if (executedInstruction.exception matches tagged Valid .exception) begin
                 pipelineController.flush(0);
 
-                Word exceptionCause = ?;
-                exceptionCause[valueOf(XLEN)-1] = (exception.isInterrupt ? 1 : 0);
-                if (exception.isInterrupt) begin
-                    exceptionCause[valueOf(XLEN)-2:0] = pack(exception.cause.Interrupt);
-                end else begin
-                    exceptionCause[valueOf(XLEN)-2:0] = pack(exception.cause.Exception);
-                end
-
                 let exceptionVector <- exceptionController.beginException(currentPrivilegeLevel, executedInstruction.programCounter, exception);
 
-                $display("%0d,%0d,%0d,%0d,%0d,writeback,EXCEPTION:", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber, fshow(exception.cause));
+                $display("%0d,%0d,%0d,%0d,%0d,writeback,EXCEPTION:", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber, fshow(exception));
                 $display("%0d,%0d,%0d,%0d,%0d,writeback,Jumping to exception handler at $%08x", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber, exceptionVector);
 
                 programCounterRedirect.exception(exceptionVector); 
