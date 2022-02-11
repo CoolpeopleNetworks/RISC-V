@@ -1,4 +1,3 @@
-add_subdirectory(Caching)
 add_subdirectory(RecycleBSVLib)
 add_subdirectory(RGLib)
 add_subdirectory(RGTiles)
