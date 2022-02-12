@@ -23,6 +23,8 @@ module mkMemorySystem_test(Empty);
 
     Reg#(TestPhase) testPhase <- mkReg(INSTRUCTION_MEMORY_TEST_SETUP);
     Reg#(Word) addressToCheck <- mkReg(memoryBaseAddress);
+    Reg#(Word) testNumber <- mkReg(0);
+
     Reg#(Word) cycleCounter <- mkReg(0);
     Reg#(Word) startCycle <- mkReg(0);
     Reg#(Bool) waitingForResponse <- mkReg(False);
@@ -96,7 +98,11 @@ module mkMemorySystem_test(Empty);
             a_size: 1,
             a_source: 0,
             a_address: addressToCheck,
+`ifdef RV64
+            a_mask: 8'b1111_1111,
+`else // RV32
             a_mask: 4'b1111,
+`endif
             a_data: ?,
             a_corrupt: False
         });
@@ -104,6 +110,25 @@ module mkMemorySystem_test(Empty);
         startCycle <= cycleCounter;
         waitingForResponse <= True;
     endrule
+
+`ifdef RV32
+    Integer testCount = 6;
+    Word expectedData[testCount] = {
+        'h00000000,
+        'h00000004,
+        'h00000008,
+        'h0000000C,
+        'h00000010,
+        'h00000014
+    };
+`else
+    Integer testCount = 3;
+    Word expectedData[testCount] = {
+        'h00000004_00000000,
+        'h0000000C_00000008,
+        'h00000014_00000010
+    };
+`endif
 
     rule dataMemoryCheck(testPhase == DATA_MEMORY_READ_TEST && waitingForResponse == True);
         let response <- memorySystem.dataMemory.response.get;
@@ -114,21 +139,26 @@ module mkMemorySystem_test(Empty);
         dynamicAssert(response.d_denied == False, "[Data Memory] FAILED: Response marked as denied");
         dynamicAssert(response.d_corrupt == False, "[Data Memory] FAILED: Response marked as corrupt");
         dynamicAssert(response.d_size == 1, "[Data Memory] FAILED: Incorrect d_size");
-        dynamicAssert(response.d_data == truncate(addressToCheck - fromInteger(memoryBaseAddress)), "[Data Memory] FAILED: Incorrect d_data");
 
+        Word expectedDataThisRound = expectedData[testNumber];
+        if (response.d_data != expectedDataThisRound) begin
+            $display("[Data Memory] FAILED: Received data $%x != Expected data: $%x", response.d_data, expectedDataThisRound);
+            $fatal();
+        end
+
+`ifdef RV32
         Word expectedLatency = 3;
+`else
+        Word expectedLatency = 8;
+`endif
         let requestLatency = cycleCounter - startCycle;
         if (requestLatency != expectedLatency) begin
             $display("[Data Memory] FAILED: Request latency ($%x) != expected latency ($%x)", requestLatency, expectedLatency);
             $fatal();
         end
 
-        if (extend(response.d_data) != addressToCheck - memoryBaseAddress) begin
-            $display("[Data Memory] FAILED: Request data ($%x) != address to check ($%x)", response.d_data, addressToCheck);
-            $fatal();
-        end
-
-        if (addressToCheck == memoryBaseAddress + 'h10) begin
+        testNumber <= testNumber + 1;
+        if (testNumber >= fromInteger(testCount)) begin
             testPhase <= COMPLETE;
         end
 

@@ -18,7 +18,7 @@ module mkBRAMServerTileFromFile#(
     BRAM_Configure cfg = defaultValue;
     cfg.memorySize = 1024 * sizeInKb;
     cfg.loadFormat = tagged Hex memoryContents;
-    BRAM2PortBE#(Word, Word32, 4) bram <- mkBRAM2ServerBE(cfg);
+    BRAM2PortBE#(Word32, Word32, 4) bram <- mkBRAM2ServerBE(cfg);
 
     FIFO#(TileLinkChannelARequest32) requests[2];
     requests[0] <- mkFIFO;
@@ -38,7 +38,7 @@ module mkBRAMServerTileFromFile#(
 
     Word validAddressBits = fromInteger((1024 * sizeInKb) - 1);
 
-    function Action handleBRAMRequest(BRAMServerBE#(Word, Word32, 4) bramPort, Integer portNumber);
+    function Action handleBRAMRequest(BRAMServerBE#(Word32, Word32, 4) bramPort, Integer portNumber);
         action
         let request = requests[portNumber].first();
         requests[portNumber].deq;
@@ -51,7 +51,7 @@ module mkBRAMServerTileFromFile#(
             bramPort.request.put(BRAMRequestBE {
                 writeen: 0,
                 responseOnWrite: False,
-                address: wordAddress,
+                address: wordAddress[31:0],
                 datain: ?
             });
             lastRequestIsWrite[portNumber] <= False;
@@ -60,7 +60,7 @@ module mkBRAMServerTileFromFile#(
             bramPort.request.put(BRAMRequestBE {
                 writeen: request.a_mask,
                 responseOnWrite: True,
-                address: wordAddress,
+                address: wordAddress[31:0],
                 datain: request.a_data
             });
             lastRequestIsWrite[portNumber] <= True;
@@ -88,10 +88,10 @@ module mkBRAMServerTileFromFile#(
         handleBRAMRequest(bram.portB, 1);
     endrule
 
-    function Action handleBRAMResponse(BRAMServerBE#(Word, Word32, 4) bramPort, Integer portNumber);
+    function Action handleBRAMResponse(BRAMServerBE#(Word32, Word32, 4) bramPort, Integer portNumber);
         action
         let response <- bramPort.response.get;
-        Word data = extend(response);
+        Word32 data = extend(response);
 
         requestInFlight[portNumber] <= False;
 

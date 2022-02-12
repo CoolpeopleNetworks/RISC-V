@@ -54,7 +54,11 @@ module mkMemoryAccessUnit#(
                         a_size: 1,
                         a_source: 0,
                         a_address: loadRequest.effectiveAddress,
-                        a_mask: 4'hF,
+`ifdef RV64
+                        a_mask: 8'b1111_1111,
+`else // RV32
+                        a_mask: 4'b1111,
+`endif
                         a_data: ?,
                         a_corrupt: False
                     });
