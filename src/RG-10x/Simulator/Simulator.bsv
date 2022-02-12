@@ -13,7 +13,8 @@ module mkSimulator(Empty);
     DualPortBRAMServerTile memory <- mkBRAMServerTileFromFile(32, "MemoryContents.hex");
 
     // Memory System
-    MemorySystem memorySystem <- mkMemorySystem(memory);
+    let memoryBaseAddress = 'h80000000;
+    MemorySystem memorySystem <- mkMemorySystem(memory, memoryBaseAddress);
 
     // Debug Module
     DebugModule debugModule <- mkDebugModule();
