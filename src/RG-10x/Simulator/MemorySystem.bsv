@@ -19,8 +19,12 @@ interface MemorySystem;
 endinterface
 
 module mkMemorySystem#(
-    DualPortBRAMServerTile memoryServer
+    DualPortBRAMServerTile memoryServer,
+    Integer memoryBaseAddress
 )(MemorySystem);
+    Word baseAddress = fromInteger(memoryBaseAddress);
+    Word highMemoryAddress = baseAddress + fromInteger(memoryServer.getMemorySize);
+
     interface InstructionMemoryServer instructionMemory;
         interface Get response;
             method ActionValue#(InstructionMemoryResponse) get;
@@ -31,7 +35,13 @@ module mkMemorySystem#(
 
         interface Put request;
             method Action put(InstructionMemoryRequest request);
-                memoryServer.portA.request.put(request);
+                if (request.a_address >= baseAddress && 
+                    request.a_address < highMemoryAddress) begin
+                    request.a_address = request.a_address - baseAddress;
+                end else begin
+                    request.a_corrupt = True;
+                end
+                memoryServer.portA.request.put(request);                
             endmethod
         endinterface
     endinterface
@@ -46,6 +56,13 @@ module mkMemorySystem#(
 
         interface Put request;
             method Action put(DataMemoryRequest request);
+                if (request.a_address >= baseAddress && 
+                    request.a_address < highMemoryAddress) begin
+                    request.a_address = request.a_address - baseAddress;
+                end else begin
+                    request.a_corrupt = True;
+                end
+
                 memoryServer.portB.request.put(request);
             endmethod
         endinterface

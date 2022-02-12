@@ -18,10 +18,11 @@ module mkMemorySystem_test(Empty);
     DualPortBRAMServerTile memory <- mkBRAMServerTileFromFile(32, "MemorySystem_test.hex");
 
     // Memory System
-    MemorySystem memorySystem <- mkMemorySystem(memory);
+    let memoryBaseAddress = 'hC000_0000;
+    MemorySystem memorySystem <- mkMemorySystem(memory, memoryBaseAddress);
 
     Reg#(TestPhase) testPhase <- mkReg(INSTRUCTION_MEMORY_TEST_SETUP);
-    Reg#(Word) addressToCheck <- mkReg(0);
+    Reg#(Word) addressToCheck <- mkReg(memoryBaseAddress);
     Reg#(Word) cycleCounter <- mkReg(0);
     Reg#(Word) startCycle <- mkReg(0);
     Reg#(Bool) waitingForResponse <- mkReg(False);
@@ -57,12 +58,12 @@ module mkMemorySystem_test(Empty);
         let response <- memorySystem.instructionMemory.response.get;
         dynamicAssert(response.d_opcode == pack(D_ACCESS_ACK_DATA), "[Instruction Memory] FAILED: Incorrect d_opcode");
         dynamicAssert(response.d_param == 0, "[Instruction Memory] FAILED: Incorrect d_param");
-        dynamicAssert(response.d_size == 1, "[Instruction Memory] FAILED: Incorrect d_size");
         dynamicAssert(response.d_source == 0, "[Instruction Memory] FAILED: Incorrect d_source");
         dynamicAssert(response.d_sink == 0, "[Instruction Memory] FAILED: Incorrect d_sink");
-        dynamicAssert(response.d_denied == False, "[Instruction Memory] FAILED: Incorrect d_denied");
-        dynamicAssert(response.d_data == truncate(addressToCheck), "[Instruction Memory] FAILED: Incorrect d_data");
-        dynamicAssert(response.d_corrupt == False, "[Instruction Memory] FAILED: Incorrect d_corrupt");
+        dynamicAssert(response.d_denied == False, "[Instruction Memory] FAILED: Response marked as denied");
+        dynamicAssert(response.d_corrupt == False, "[Instruction Memory] FAILED: Response marked as corrupted");
+        dynamicAssert(response.d_size == 1, "[Instruction Memory] FAILED: Incorrect d_size");
+        dynamicAssert(response.d_data == truncate(addressToCheck - fromInteger(memoryBaseAddress)), "[Instruction Memory] FAILED: Incorrect d_data");
 
         Word expectedLatency = 3;
         let requestLatency = cycleCounter - startCycle;
@@ -71,7 +72,7 @@ module mkMemorySystem_test(Empty);
             $fatal();
         end
 
-        if (addressToCheck == 'h10) begin
+        if (addressToCheck == memoryBaseAddress + 'h10) begin
             testPhase <= DATA_MEMORY_READ_TEST_SETUP;
         end
 
@@ -82,7 +83,7 @@ module mkMemorySystem_test(Empty);
     (* fire_when_enabled *)
     rule dataMemoryTestSetup(testPhase == DATA_MEMORY_READ_TEST_SETUP);
         testPhase <= DATA_MEMORY_READ_TEST;
-        addressToCheck <= 0;
+        addressToCheck <= memoryBaseAddress;
         waitingForResponse <= False;
     endrule
 
@@ -108,12 +109,12 @@ module mkMemorySystem_test(Empty);
         let response <- memorySystem.dataMemory.response.get;
         dynamicAssert(response.d_opcode == pack(D_ACCESS_ACK_DATA), "[Data Memory] FAILED: Incorrect d_opcode");
         dynamicAssert(response.d_param == 0, "[Data Memory] FAILED: Incorrect d_param");
-        dynamicAssert(response.d_size == 1, "[Data Memory] FAILED: Incorrect d_size");
         dynamicAssert(response.d_source == 0, "[Data Memory] FAILED: Incorrect d_source");
         dynamicAssert(response.d_sink == 0, "[Data Memory] FAILED: Incorrect d_sink");
-        dynamicAssert(response.d_denied == False, "[Data Memory] FAILED: Incorrect d_denied");
-        dynamicAssert(response.d_data == truncate(addressToCheck), "[Data Memory] FAILED: Incorrect d_data");
-        dynamicAssert(response.d_corrupt == False, "[Data Memory] FAILED: Incorrect d_corrupt");
+        dynamicAssert(response.d_denied == False, "[Data Memory] FAILED: Response marked as denied");
+        dynamicAssert(response.d_corrupt == False, "[Data Memory] FAILED: Response marked as corrupt");
+        dynamicAssert(response.d_size == 1, "[Data Memory] FAILED: Incorrect d_size");
+        dynamicAssert(response.d_data == truncate(addressToCheck - fromInteger(memoryBaseAddress)), "[Data Memory] FAILED: Incorrect d_data");
 
         Word expectedLatency = 3;
         let requestLatency = cycleCounter - startCycle;
@@ -122,12 +123,12 @@ module mkMemorySystem_test(Empty);
             $fatal();
         end
 
-        if (extend(response.d_data) != addressToCheck) begin
+        if (extend(response.d_data) != addressToCheck - memoryBaseAddress) begin
             $display("[Data Memory] FAILED: Request data ($%x) != address to check ($%x)", response.d_data, addressToCheck);
             $fatal();
         end
 
-        if (addressToCheck == 'h10) begin
+        if (addressToCheck == memoryBaseAddress + 'h10) begin
             testPhase <= COMPLETE;
         end
 

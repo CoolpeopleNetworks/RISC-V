@@ -7,6 +7,8 @@ import FIFO::*;
 interface DualPortBRAMServerTile;
     interface TileLinkADServer32 portA;
     interface TileLinkADServer32 portB;
+
+    method Integer getMemorySize();
 endinterface
 
 module mkBRAMServerTileFromFile#(
@@ -178,4 +180,8 @@ module mkBRAMServerTileFromFile#(
             endmethod
         endinterface
     endinterface
+
+    method Integer getMemorySize;
+        return 1024 * sizeInKb;
+    endmethod
 endmodule
