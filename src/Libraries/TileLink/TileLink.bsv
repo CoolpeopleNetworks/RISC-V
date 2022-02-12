@@ -1,3 +1,4 @@
+import RGTypes::*;
 import ClientServer::*;
 
 /*
@@ -55,7 +56,7 @@ typedef struct {
     // Bit#(1) a_ready
 } TileLinkChannelARequest#(numeric type z, numeric type o, numeric type a, numeric type w) deriving(Bits, Eq, FShow);
 
-typedef TileLinkChannelARequest#(1, 1, 32, 4) TileLinkChannelARequest32;
+typedef TileLinkChannelARequest#(1, 1, XLEN, 4) TileLinkChannelARequest32;
 
 typedef struct {
     Bit#(3) d_opcode;
