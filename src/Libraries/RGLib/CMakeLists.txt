@@ -17,6 +17,9 @@ file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*_test.bsv")
 foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_TARGET ${TEST_FILE} NAME_WE)
     add_executable(${TEST_TARGET} ${TEST_FILE})
+    target_compile_definitions(${TEST_TARGET} PUBLIC
+        ${BASE_ISA}
+    )
     target_link_libraries(${TEST_TARGET}
         RVLib::RVLib
         RGLibCSR::RGLibCSR
