@@ -1,5 +1,13 @@
 = RISC-V
 
+== Macos notes
+* In order to build the RISCV toolchain on M1, there's a bug that needs to be fixed.
+https://github.com/riscv-software-src/homebrew-riscv/issues/47[See here for info]. +
+
+* If running into link errors building on M1, be sure to specify (via LIBRARY_PATH) where
+libraries are located inside homebrew (e.g. LIBRARY_PATH=/opt/homebrew/lib)
+
+
 == Links
 https://www.kvakil.me/venus/[Instruction Stream Generator] +
 https://github.com/riscv-software-src/homebrew-riscv[RISC-V Toolchain for MacOS] +

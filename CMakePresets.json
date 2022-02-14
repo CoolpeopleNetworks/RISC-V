@@ -11,7 +11,7 @@
             "displayName": "Base Config",
             "hidden": true,
             "generator": "Unix Makefiles",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "binaryDir": "${sourceDir}/build/${presetName}",
             "environment": {
                 "CTEST_OUTPUT_ON_FAILURE": "True"
             }
