@@ -57,6 +57,9 @@ module mkRG100Core#(
         ProgramCounter initialProgramCounter,
         InstructionMemoryServer instructionMemory,
         DataMemoryServer dataMemory,
+`ifdef MONITOR_TOHOST_ADDRESS
+        Word toHostAddress,
+`endif
         Bool disablePipelining
 )(RG100Core);
     //
@@ -156,7 +159,12 @@ module mkRG100Core#(
         4,
         pipelineController,
         executionUnit.getExecutedInstructionQueue,
+`ifdef MONITOR_TOHOST_ADDRESS
+        dataMemory,
+        toHostAddress
+`else
         dataMemory
+`endif
     );
 
     // 

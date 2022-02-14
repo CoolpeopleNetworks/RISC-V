@@ -7,7 +7,7 @@ set -e
 
 RESULT=$($1 -m 5000)
 echo "$RESULT" > "$1_output.txt"
-if [[ ! $RESULT =~ "--- PASS" ]]; then
+if [[ ! $RESULT =~ "    PASS" ]]; then
     echo ">>>>> FAILED: $RESULT"
     exit 1
 fi

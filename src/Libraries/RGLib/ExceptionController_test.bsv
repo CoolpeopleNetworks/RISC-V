@@ -70,7 +70,7 @@ module mkExceptionController_test(Empty);
     endrule
 
     rule complete(state == COMPLETE);
-        $display("--- PASS");
+        $display("    PASS");
         $finish();
     endrule
 endmodule

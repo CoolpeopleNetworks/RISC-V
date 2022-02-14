@@ -290,7 +290,7 @@ module mkMemorySystem_test(Empty);
     endrule
 
     rule complete(testPhase == COMPLETE);
-        $display("--- PASS");
+        $display("    PASS");
         $finish();
     endrule
 endmodule

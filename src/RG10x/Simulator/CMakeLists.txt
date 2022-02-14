@@ -10,6 +10,7 @@ target_link_libraries(RG10xSim
 
 target_compile_definitions(RG10xSim PUBLIC
     ${BASE_ISA}
+    ${MONITOR_TOHOST_ADDRESS}
     #DISABLE_BRANCH_PREDICTION
 )
 
@@ -19,6 +20,7 @@ target_compile_definitions(RG10xSim PUBLIC
 add_executable(MemorySystem_test MemorySystem_test.bsv)
 target_compile_definitions(MemorySystem_test PUBLIC
     ${BASE_ISA}
+    ${MONITOR_TOHOST_ADDRESS}
 )
 target_link_libraries(MemorySystem_test
     RVLib::RVLib

@@ -28,6 +28,21 @@
             }
         },
         {
+          "name": "rg101_isa_tests",
+          "displayName": "RG101 (RV32I) ISA_TESTS",
+          "inherits": "base",
+          "cacheVariables": {
+              "BASE_ISA": {
+                  "type": "STRING",
+                  "value": "RV32"
+              },
+              "MONITOR_TOHOST_ADDRESS": {
+                "type": "STRING",
+                "value": "MONITOR_TOHOST_ADDRESS"
+              }
+          }
+      },
+      {
             "name": "rg103",
             "displayName": "RG103 (RV64I)",
             "cacheVariables": {

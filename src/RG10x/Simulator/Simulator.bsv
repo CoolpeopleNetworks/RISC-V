@@ -20,7 +20,16 @@ module mkSimulator(Empty);
     DebugModule debugModule <- mkDebugModule();
 
     // Core
-    RG100Core core <- mkRG100Core(debugModule, 0, memorySystem.instructionMemory, memorySystem.dataMemory, True /* Disable Pipelining */);
+    RG100Core core <- mkRG100Core(
+        debugModule, 
+        'h8000_0000, 
+        memorySystem.instructionMemory, 
+        memorySystem.dataMemory,
+`ifdef MONITOR_TOHOST_ADDRESS
+        'h8000_1000,
+`endif
+        True // Disable Pipelining
+    );
     Reg#(Bool) initialized <- mkReg(False);
 
     (* fire_when_enabled *)

@@ -23,6 +23,7 @@ typedef struct {
 //
 typedef struct {
     Word effectiveAddress;
+    Word value;
     RVStoreOperator operator;
 } StoreRequest deriving(Bits, Eq, FShow);
 

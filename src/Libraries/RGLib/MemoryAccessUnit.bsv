@@ -28,7 +28,12 @@ module mkMemoryAccessUnit#(
     Integer stageNumber,
     PipelineController pipelineController,
     FIFO#(ExecutedInstruction) inputQueue,
+`ifdef MONITOR_TOHOST_ADDRESS
+    DataMemoryServer dataMemory,
+    Word toHostAddress
+`else
     DataMemoryServer dataMemory
+`endif
 )(MemoryAccessUnit);
     FIFO#(ExecutedInstruction) outputQueue <- mkPipelineFIFO();
     Reg#(Bool) waitingForLoadToComplete <- mkReg(False);
@@ -67,6 +72,16 @@ module mkMemoryAccessUnit#(
                     instructionWaitingForLoad <= executedInstruction;
                     waitingForLoadToComplete <= True;
                 end
+            end else if (executedInstruction.storeRequest matches tagged Valid .storeRequest) begin
+`ifdef MONITOR_TOHOST_ADDRESS
+                if (storeRequest.effectiveAddress == toHostAddress) begin
+                    let test_num = (storeRequest.value >> 1);
+                    if (test_num == 0) $display ("    PASS");
+                    else               $display ("    FAIL <test_%0d>", test_num);
+
+                    $finish();
+                end
+`endif
             end else begin
                 // Not a LOAD/STORE
                 $display("%0d,%0d,%0d,%0d,%0d,memory access,NO-OP", fetchIndex, cycleCounter, stageEpoch, executedInstruction.programCounter, stageNumber);

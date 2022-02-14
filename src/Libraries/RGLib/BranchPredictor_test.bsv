@@ -47,7 +47,7 @@ module mkBranchPredictor_test(Empty);
         end
 
         if (testNumber + 1 >= fromInteger(arraySize)) begin
-            $display("--- PASS");
+            $display("    PASS");
             $finish();
         end
 
