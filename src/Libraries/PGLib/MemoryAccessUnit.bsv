@@ -59,17 +59,13 @@ module mkMemoryAccessUnit#(
                         a_param: 0,
                         a_size: 1,
                         a_source: 0,
-                        a_address: loadRequest.effectiveAddress,
-`ifdef RV64
-                        a_mask: 8'b1111_1111,
-`else // RV32
-                        a_mask: 4'b1111,
-`endif
+                        a_address: loadRequest.wordAddress,
+                        a_mask: loadRequest.mask,
                         a_data: ?,
                         a_corrupt: False
                     });
 
-                    $display("%0d,%0d,%0d,%0d,%0d,memory access, Loading from $%08x", fetchIndex, cycleCounter, executedInstruction.programCounter, loadRequest.effectiveAddress);
+                    $display("%0d,%0d,%0d,%0d,%0d,memory access, Loading from $%08x", fetchIndex, cycleCounter, executedInstruction.programCounter, loadRequest.wordAddress);
                     instructionWaitingForLoad <= executedInstruction;
                     waitingForLoadToComplete <= True;
                 end
@@ -119,9 +115,20 @@ module mkMemoryAccessUnit#(
         // Save the data that will be written back into the register file on the
         // writeback pipeline stage.
         let loadRequest = unJust(executedInstruction.loadRequest);
+        Word value = ?;
+        if (loadRequest.rightShift == 0) begin
+            value = memoryResponse.d_data;
+        end else begin
+            if (loadRequest.signExtend) begin
+                value = signExtend(memoryResponse.d_data >> loadRequest.rightShift);
+            end else begin
+                value = extend(memoryResponse.d_data >> loadRequest.rightShift);
+            end
+        end
+
         executedInstruction.writeBack = tagged Valid WriteBack {
             rd: loadRequest.rd,
-            value: memoryResponse.d_data
+            value: value
         };
 
         inputQueue.deq();

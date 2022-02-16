@@ -8,10 +8,109 @@ import Exception::*;
 // from memory.
 //
 typedef struct {
+    Word wordAddress;           // XLEN aligned
     RegisterIndex rd;
-    Word effectiveAddress;
-    RVLoadOperator operator;
+    Bit#(6) rightShift;         // Number of bits to shift result by 
+    Bit#(TDiv#(XLEN, 8)) mask;  // Mask used isolate requiree destination bits
+    Bool signExtend;
 } LoadRequest deriving(Bits, Eq, FShow);
+
+function Word getWordAddress(Word effectiveAddress);
+    Bit#(XLEN) shift = fromInteger(valueOf(TLog#(TDiv#(XLEN,8))));
+    Bit#(XLEN) mask = ~((1 << shift) - 1);
+
+    return effectiveAddress & mask;
+endfunction
+
+function Result#(LoadRequest, Exception) getLoadRequest(
+    RVLoadOperator loadOperator,
+    RegisterIndex rd,
+    Word effectiveAddress);
+
+    Result#(LoadRequest, Exception) result = 
+        tagged Error tagged ExceptionCause extend(pack(ILLEGAL_INSTRUCTION));
+
+    // Determine the *word* address of the store request.
+    let wordAddress = getWordAddress(effectiveAddress);
+
+    // Determine how much to shift bytes by to find the right byte address inside a word.
+    Bit#(6) rightShiftBytes = truncate(effectiveAddress - wordAddress);
+
+    let loadRequest = LoadRequest {
+        wordAddress: wordAddress,
+        rd: rd,
+        rightShift: rightShiftBytes,
+        mask: ?,
+        signExtend: True
+    };
+
+    case (loadOperator)
+        // Byte
+        pack(LB): begin
+            loadRequest.mask = 'b1;
+            result = tagged Success loadRequest;
+        end
+
+        pack(LBU): begin
+            loadRequest.mask = 'b1;
+            loadRequest.signExtend = False;
+            result = tagged Success loadRequest;
+        end
+
+        // Half-word
+        pack(LH): begin
+            if ((effectiveAddress & 'b01) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
+            end else begin
+                loadRequest.mask = 'b11;
+                result = tagged Success loadRequest;
+            end
+        end
+
+        pack(LHU): begin
+            if ((effectiveAddress & 'b01) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
+            end else begin
+                loadRequest.mask = 'b11;
+                loadRequest.signExtend = False;
+                result = tagged Success loadRequest;
+            end
+        end
+
+        // Word
+        pack(LW): begin
+            if ((effectiveAddress & 'b11) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
+            end else begin
+                loadRequest.mask = 'b1111;
+                result = tagged Success loadRequest;
+            end
+        end
+
+`ifdef RV64
+        pack(LWU): begin
+            if ((effectiveAddress & 'b11) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
+            end else begin
+                loadRequest.mask = 'b1111;
+                loadRequest.signExtend = False;
+                result = tagged Success loadRequest;
+            end
+        end
+
+        pack(LD): begin
+            if ((effectiveAddress & 'b111) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
+            end else begin
+                loadRequest.mask = 'b1111_1111;
+                result = tagged Success loadRequest;
+            end
+        end
+`endif
+    endcase
+
+    return result;
+endfunction
 
 //
 // StoreRequest
@@ -20,7 +119,7 @@ typedef struct {
 // to memory.
 //
 typedef struct {
-    Word wordAddress;               // XLEN aligned
+    Word wordAddress;       // XLEN aligned
     Bit#(TDiv#(XLEN, 8)) byteEnable;
     Word value;
 } StoreRequest deriving(Bits, Eq, FShow);
@@ -33,11 +132,7 @@ function Result#(StoreRequest, Exception) getStoreRequest(
     Result#(StoreRequest, Exception) result = 
         tagged Error tagged ExceptionCause extend(pack(ILLEGAL_INSTRUCTION));
 
-    Bit#(XLEN) shift = fromInteger(valueOf(TLog#(TDiv#(XLEN,8))));
-    Bit#(XLEN) mask = ~((1 << shift) - 1);
-
-    // Determine the *word* address of the store request.
-    let wordAddress = effectiveAddress & mask;
+    let wordAddress = getWordAddress(effectiveAddress);
 
     // Determine how much to shift bytes by to find the right byte address inside a word.
     let leftShiftBytes = effectiveAddress - wordAddress;

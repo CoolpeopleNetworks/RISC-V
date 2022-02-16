@@ -57,35 +57,6 @@ module mkExecutionUnit#(
         endcase;
     endfunction
 
-    function Bool isValidLoadOperator(RVLoadOperator loadOperator);
-`ifdef RV32
-        return (loadOperator != pack(UNSUPPORTED_LOAD_OPERATOR_011) &&
-                loadOperator != pack(UNSUPPORTED_LOAD_OPERATOR_110) &&
-                loadOperator != pack(UNSUPPORTED_LOAD_OPERATOR_111));
-`elsif RV64
-        return (loadOperator != pack(UNSUPPORTED_LOAD_OPERATOR_111));
-`else
-        return False;
-`endif
-    endfunction
-
-    function Bool isValidStoreOperator(RVStoreOperator storeOperator);
-`ifdef RV32
-        return (storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_011) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_100) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_101) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_110) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_111));
-`elsif RV64
-        return (storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_100) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_101) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_110) &&
-                storeOperator != pack(UNSUPPORTED_STORE_OPERATOR_111));
-`else
-        return False;
-`endif
-    endfunction
-
     function ActionValue#(ExecutedInstruction) executeInstruction(
         DecodedInstruction decodedInstruction,
         CSRFile csrFile,
@@ -242,14 +213,21 @@ module mkExecutionUnit#(
                     dynamicAssert(isValid(decodedInstruction.rs2) == False, "LOAD: rs2 SHOULD BE invalid");
                     dynamicAssert(isValid(decodedInstruction.immediate), "LOAD: immediate is invalid");
 
-                    if (isValidLoadOperator(decodedInstruction.loadOperator)) begin
+                    let effectiveAddress = getEffectiveAddress(decodedInstruction.rs1Value, unJust(decodedInstruction.immediate));
+                    let rd = unJust(decodedInstruction.rd);
+
+                    let result = getLoadRequest(
+                        decodedInstruction.storeOperator,
+                        rd,
+                        effectiveAddress
+                    );
+
+                    if (isSuccess(result)) begin
+                        executedInstruction.loadRequest = tagged Valid result.Success;
                         executedInstruction.exception = tagged Invalid;
-                        executedInstruction.loadRequest = tagged Valid LoadRequest {
-                            rd: unJust(decodedInstruction.rd),
-                            effectiveAddress: getEffectiveAddress(decodedInstruction.rs1Value, unJust(decodedInstruction.immediate)),
-                            operator: decodedInstruction.loadOperator
-                        };
-                    end
+                    end else begin
+                        executedInstruction.exception = tagged Valid result.Error;
+                    end 
                 end
 
                 STORE: begin
@@ -260,7 +238,6 @@ module mkExecutionUnit#(
                     dynamicAssert(isValid(decodedInstruction.immediate), "STORE: immediate is invalid");
 
                     let effectiveAddress = getEffectiveAddress(decodedInstruction.rs1Value, unJust(decodedInstruction.immediate));
-                    let wordAddress = effectiveAddress & ~(1 << fromInteger(valueOf(TLog#(XLEN))) - 1);
 
                     let result = getStoreRequest(
                         decodedInstruction.storeOperator,
