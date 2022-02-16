@@ -1,5 +1,5 @@
+add_subdirectory(PGLib)
+add_subdirectory(PGTiles)
 add_subdirectory(RecycleBSVLib)
-add_subdirectory(RGLib)
-add_subdirectory(RGTiles)
 add_subdirectory(RVLib)
 add_subdirectory(TileLink)

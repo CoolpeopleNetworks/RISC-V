@@ -17,8 +17,8 @@
             }
         },
         {
-            "name": "rg101",
-            "displayName": "RG101 (RV32I)",
+            "name": "pg101",
+            "displayName": "PG101 (RV32I)",
             "inherits": "base",
             "cacheVariables": {
                 "BASE_ISA": {
@@ -28,8 +28,8 @@
             }
         },
         {
-          "name": "rg101_isa_tests",
-          "displayName": "RG101 (RV32I) ISA_TESTS",
+          "name": "pg101_isa_tests",
+          "displayName": "PG101 (RV32I) ISA_TESTS",
           "inherits": "base",
           "cacheVariables": {
               "BASE_ISA": {
@@ -43,8 +43,8 @@
           }
       },
       {
-            "name": "rg103",
-            "displayName": "RG103 (RV64I)",
+            "name": "pg103",
+            "displayName": "PG103 (RV64I)",
             "cacheVariables": {
                 "BASE_ISA": {
                     "type": "STRING",

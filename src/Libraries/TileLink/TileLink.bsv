@@ -1,4 +1,4 @@
-import RGTypes::*;
+import PGTypes::*;
 import ClientServer::*;
 
 /*

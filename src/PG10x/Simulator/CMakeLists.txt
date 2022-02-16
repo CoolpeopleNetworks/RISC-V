@@ -1,0 +1,34 @@
+find_package(BlueCheck)
+
+add_executable(PG10xSim Simulator.bsv)
+target_link_libraries(PG10xSim 
+    PG10xCore::PG10xCore
+    RVLib::RVLib
+    PGLib::PGLib
+    RGTiles::RGTiles
+)
+
+target_compile_definitions(PG10xSim PUBLIC
+    ${BASE_ISA}
+    ${MONITOR_TOHOST_ADDRESS}
+    #DISABLE_BRANCH_PREDICTION
+)
+
+#
+# Tests
+#
+add_executable(MemorySystem_test MemorySystem_test.bsv)
+target_compile_definitions(MemorySystem_test PUBLIC
+    ${BASE_ISA}
+    ${MONITOR_TOHOST_ADDRESS}
+)
+target_link_libraries(MemorySystem_test
+    RVLib::RVLib
+    PGLib::PGLib
+    RGTiles::RGTiles
+)
+add_test(
+    NAME MemorySystem_test
+    COMMAND "${CMAKE_SOURCE_DIR}/cmake/Wrappers/bsvtest" "${CMAKE_CURRENT_BINARY_DIR}/MemorySystem_test" 
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
