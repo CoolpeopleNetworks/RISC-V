@@ -22,9 +22,9 @@ typedef struct {
 // to memory.
 //
 typedef struct {
-    Word effectiveAddress;
+    Word wordAddress;               // XLEN aligned
+    Bit#(TDiv#(XLEN, 8)) byteEnable;
     Word value;
-    RVStoreOperator operator;
 } StoreRequest deriving(Bits, Eq, FShow);
 
 //

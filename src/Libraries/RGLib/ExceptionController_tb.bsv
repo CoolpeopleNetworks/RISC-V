@@ -15,7 +15,7 @@ typedef enum {
 } State deriving(Bits, Eq, FShow);
 
 (* synthesize *)
-module mkExceptionController_test(Empty);
+module mkExceptionController_tb(Empty);
     Reg#(State) state <- mkReg(INIT);
 
     CSRFile csrFile <- mkCSRFile();

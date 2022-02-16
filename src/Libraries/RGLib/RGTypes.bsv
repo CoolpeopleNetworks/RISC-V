@@ -15,4 +15,18 @@ typedef Bit#(12) CSRIndex;
 
 typedef TLog#(TDiv#(n,8)) DataSz#(numeric type n);
 
+// A Rust inspired Result type.
+typedef union tagged {
+    success_type Success;
+    error_type Error;
+} Result#(type success_type, type error_type);
+
+function Bool isSuccess(Result#(success_type, error_type) result);
+    if (result matches tagged Success .*) begin
+        return True;
+    end else begin
+        return False;
+    end
+endfunction
+
 export Memory::*, RVTypes::*, RGTypes::*;

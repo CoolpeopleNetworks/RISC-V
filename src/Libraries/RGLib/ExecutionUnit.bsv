@@ -19,7 +19,78 @@ import FIFO::*;
 import GetPut::*;
 import SpecialFIFOs::*;
 
-export ExecutionUnit(..), mkExecutionUnit;
+export ExecutionUnit(..), mkExecutionUnit, getStoreRequest;
+
+function Result#(StoreRequest, Exception) getStoreRequest(
+    RVStoreOperator storeOperator,
+    Word effectiveAddress,
+    Word value);
+
+    Result#(StoreRequest, Exception) result = 
+        tagged Error tagged ExceptionCause extend(pack(ILLEGAL_INSTRUCTION));
+
+    Bit#(XLEN) shift = fromInteger(valueOf(TLog#(TDiv#(XLEN,8))));
+    Bit#(XLEN) mask = ~((1 << shift) - 1);
+
+    // Determine the *word* address of the store request.
+    let wordAddress = effectiveAddress & mask;
+
+    // Determine how much to shift bytes by to find the right byte address inside a word.
+    let leftShiftBytes = effectiveAddress - wordAddress;
+
+    let storeRequest = StoreRequest {
+        wordAddress: wordAddress,
+        byteEnable: ?,
+        value: ?
+    };
+
+    case (storeOperator)
+        // Byte
+        pack(SB): begin
+            storeRequest.byteEnable = ('b1 << leftShiftBytes);
+            storeRequest.value = (value & 'hFF) << (8 * leftShiftBytes);
+
+            result = tagged Success storeRequest;
+        end
+        // Half-word
+        pack(SH): begin
+            if ((effectiveAddress & 'b01) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(STORE_ADDRESS_MISALIGNED));
+            end else begin
+                storeRequest.byteEnable = ('b11 << leftShiftBytes);
+                storeRequest.value = (value & 'hFFFF) << (8 * leftShiftBytes);
+
+                result = tagged Success storeRequest;
+            end
+        end
+        // Word
+        pack(SW): begin
+            if ((effectiveAddress & 'b11) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(STORE_ADDRESS_MISALIGNED));
+            end else begin
+                storeRequest.byteEnable = ('b1111 << leftShiftBytes);
+                storeRequest.value = (value & 'hFFFF_FFFF) << (8 * leftShiftBytes);
+
+                result = tagged Success storeRequest;
+            end
+        end
+`ifdef RV64
+        // Double-word
+        pack(SD): begin
+            if ((effectiveAddress & 'b111) != 0) begin
+                result = tagged Error tagged ExceptionCause extend(pack(STORE_ADDRESS_MISALIGNED));
+            end else begin
+                storeRequest.byteEnable = 'b1111_1111;
+                storeRequest.value = value;
+
+                result = tagged Success storeRequest;
+            end
+        end
+`endif
+    endcase
+
+    return result;
+endfunction
 
 interface ExecutionUnit;
     interface FIFO#(ExecutedInstruction) getExecutedInstructionQueue;
@@ -133,7 +204,7 @@ module mkExecutionUnit#(
                         if (isBranchTaken(decodedInstruction)) begin
                             // Determine branch target address and check
                             // for address misalignment.
-                            let branchTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
+                            let branchTarget = getEffectiveAddress(decodedInstruction.programCounter, unJust(decodedInstruction.immediate));
                             // Branch target must be 32 bit aligned.
                             if (branchTarget[1:0] != 0) begin
                                 executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(INSTRUCTION_ADDRESS_MISALIGNED));
@@ -199,7 +270,7 @@ module mkExecutionUnit#(
                     dynamicAssert(isValid(decodedInstruction.rs2) == False, "JUMP: rs2 SHOULD BE invalid");
                     dynamicAssert(isValid(decodedInstruction.immediate), "JUMP: immediate is invalid");
                     
-                    let jumpTarget = getEffectiveAddress(decodedInstruction.programCounter, fromMaybe(?, decodedInstruction.immediate));
+                    let jumpTarget = getEffectiveAddress(decodedInstruction.programCounter, unJust(decodedInstruction.immediate));
                     if (jumpTarget[1:0] != 0) begin
                         executedInstruction.exception = tagged Valid tagged ExceptionCause extend(pack(INSTRUCTION_ADDRESS_MISALIGNED));
                     end else begin
@@ -218,7 +289,7 @@ module mkExecutionUnit#(
                     dynamicAssert(isValid(decodedInstruction.rs2) == False, "JUMP_INDIRECT: rs2 SHOULD BE invalid");
                     dynamicAssert(isValid(decodedInstruction.immediate), "JUMP_INDIRECT: immediate is invalid");
                     
-                    let jumpTarget = getEffectiveAddress(decodedInstruction.rs1Value, fromMaybe(?, decodedInstruction.immediate));
+                    let jumpTarget = getEffectiveAddress(decodedInstruction.rs1Value, unJust(decodedInstruction.immediate));
                     jumpTarget[0] = 0;
 
                     if (jumpTarget[1:0] != 0) begin
@@ -258,9 +329,21 @@ module mkExecutionUnit#(
                     dynamicAssert(isValid(decodedInstruction.rs2), "STORE: rs2 is invalid");
                     dynamicAssert(isValid(decodedInstruction.immediate), "STORE: immediate is invalid");
 
-                    if (isValidStoreOperator(decodedInstruction.storeOperator)) begin
+                    let effectiveAddress = getEffectiveAddress(decodedInstruction.rs1Value, unJust(decodedInstruction.immediate));
+                    let wordAddress = effectiveAddress & ~(1 << fromInteger(valueOf(TLog#(XLEN))) - 1);
+
+                    let result = getStoreRequest(
+                        decodedInstruction.storeOperator,
+                        effectiveAddress,
+                        decodedInstruction.rs2Value
+                    );
+
+                    if (isSuccess(result)) begin
+                        executedInstruction.storeRequest = tagged Valid result.Success;
                         executedInstruction.exception = tagged Invalid;
-                    end
+                    end else begin
+                        executedInstruction.exception = tagged Valid result.Error;
+                    end 
                 end
 
                 SYSTEM: begin

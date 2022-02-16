@@ -8,7 +8,7 @@ typedef struct {
 } BranchPredictorTest deriving(Bits, Eq, FShow);
 
 (* synthesize *)
-module mkBranchPredictor_test(Empty);
+module mkBranchPredictor_tb(Empty);
     Reg#(Word) testNumber <- mkReg(0);
 
     BranchPredictor branchPredictor <- mkBackwardBranchTakenPredictor();

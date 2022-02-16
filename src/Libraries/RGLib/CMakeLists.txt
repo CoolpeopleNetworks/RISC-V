@@ -13,7 +13,7 @@ target_link_libraries(RGLib
 #
 # Tests
 #
-file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*_test.bsv")
+file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*_tb.bsv")
 foreach(TEST_FILE ${TEST_FILES})
     get_filename_component(TEST_TARGET ${TEST_FILE} NAME_WE)
     add_executable(${TEST_TARGET} ${TEST_FILE})
