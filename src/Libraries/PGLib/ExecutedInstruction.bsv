@@ -1,31 +1,8 @@
 import PGTypes::*;
 
-import PipelineController::*;
 import Exception::*;
-
-//
-// LoadRequest
-//
-// Structure containing information about a request to load data
-// from memory.
-//
-typedef struct {
-    RegisterIndex rd;
-    Word effectiveAddress;
-    RVLoadOperator operator;
-} LoadRequest deriving(Bits, Eq, FShow);
-
-//
-// StoreRequest
-//
-// Structure containing information about a request to store data
-// to memory.
-//
-typedef struct {
-    Word wordAddress;               // XLEN aligned
-    Bit#(TDiv#(XLEN, 8)) byteEnable;
-    Word value;
-} StoreRequest deriving(Bits, Eq, FShow);
+import LoadStore::*;
+import PipelineController::*;
 
 //
 // WriteBack

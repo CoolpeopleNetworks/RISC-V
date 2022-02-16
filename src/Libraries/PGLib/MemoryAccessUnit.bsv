@@ -10,6 +10,7 @@ import PGTypes::*;
 
 import EncodedInstruction::*;
 import ExecutedInstruction::*;
+import LoadStore::*;
 import MemoryInterfaces::*;
 import PipelineController::*;
 

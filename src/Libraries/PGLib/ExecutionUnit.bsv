@@ -11,6 +11,7 @@ import CSRFile::*;
 import DecodedInstruction::*;
 import Exception::*;
 import ExecutedInstruction::*;
+import LoadStore::*;
 import PipelineController::*;
 import ProgramCounterRedirect::*;
 
@@ -19,78 +20,7 @@ import FIFO::*;
 import GetPut::*;
 import SpecialFIFOs::*;
 
-export ExecutionUnit(..), mkExecutionUnit, getStoreRequest;
-
-function Result#(StoreRequest, Exception) getStoreRequest(
-    RVStoreOperator storeOperator,
-    Word effectiveAddress,
-    Word value);
-
-    Result#(StoreRequest, Exception) result = 
-        tagged Error tagged ExceptionCause extend(pack(ILLEGAL_INSTRUCTION));
-
-    Bit#(XLEN) shift = fromInteger(valueOf(TLog#(TDiv#(XLEN,8))));
-    Bit#(XLEN) mask = ~((1 << shift) - 1);
-
-    // Determine the *word* address of the store request.
-    let wordAddress = effectiveAddress & mask;
-
-    // Determine how much to shift bytes by to find the right byte address inside a word.
-    let leftShiftBytes = effectiveAddress - wordAddress;
-
-    let storeRequest = StoreRequest {
-        wordAddress: wordAddress,
-        byteEnable: ?,
-        value: ?
-    };
-
-    case (storeOperator)
-        // Byte
-        pack(SB): begin
-            storeRequest.byteEnable = ('b1 << leftShiftBytes);
-            storeRequest.value = (value & 'hFF) << (8 * leftShiftBytes);
-
-            result = tagged Success storeRequest;
-        end
-        // Half-word
-        pack(SH): begin
-            if ((effectiveAddress & 'b01) != 0) begin
-                result = tagged Error tagged ExceptionCause extend(pack(STORE_ADDRESS_MISALIGNED));
-            end else begin
-                storeRequest.byteEnable = ('b11 << leftShiftBytes);
-                storeRequest.value = (value & 'hFFFF) << (8 * leftShiftBytes);
-
-                result = tagged Success storeRequest;
-            end
-        end
-        // Word
-        pack(SW): begin
-            if ((effectiveAddress & 'b11) != 0) begin
-                result = tagged Error tagged ExceptionCause extend(pack(STORE_ADDRESS_MISALIGNED));
-            end else begin
-                storeRequest.byteEnable = ('b1111 << leftShiftBytes);
-                storeRequest.value = (value & 'hFFFF_FFFF) << (8 * leftShiftBytes);
-
-                result = tagged Success storeRequest;
-            end
-        end
-`ifdef RV64
-        // Double-word
-        pack(SD): begin
-            if ((effectiveAddress & 'b111) != 0) begin
-                result = tagged Error tagged ExceptionCause extend(pack(STORE_ADDRESS_MISALIGNED));
-            end else begin
-                storeRequest.byteEnable = 'b1111_1111;
-                storeRequest.value = value;
-
-                result = tagged Success storeRequest;
-            end
-        end
-`endif
-    endcase
-
-    return result;
-endfunction
+export ExecutionUnit(..), mkExecutionUnit;
 
 interface ExecutionUnit;
     interface FIFO#(ExecutedInstruction) getExecutedInstructionQueue;

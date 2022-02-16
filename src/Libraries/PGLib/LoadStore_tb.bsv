@@ -1,8 +1,7 @@
 import PGTypes::*;
 
 import Exception::*;
-import ExecutionUnit::*;
-import ExecutedInstruction::*;
+import LoadStore::*;
 
 import Assert::*;
 import Printf::*;
@@ -26,7 +25,7 @@ typedef struct {
 } StoreTestCase deriving(Bits, Eq, FShow);
 
 (* synthesize *)
-module mkMemoryAccessUnit_tb(Empty);
+module mkLoadStore_tb(Empty);
     Reg#(State) state <- mkReg(INIT);
     Reg#(Word) testNumber <- mkReg(0);
 
