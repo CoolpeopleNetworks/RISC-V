@@ -16,9 +16,9 @@ typedef enum {
 } TestPhase deriving(Bits, Eq);
 
 (* synthesize *)
-module mkMemorySystem_test(Empty);
+module mkMemorySystem_tb(Empty);
     // BRAM Server Tile
-    DualPortBRAMServerTile memory <- mkBRAMServerTileFromFile(32, "MemorySystem_test.hex");
+    DualPortBRAMServerTile memory <- mkBRAMServerTileFromFile(32, "MemorySystem_tb.hex");
 
     // Memory System
     let memoryBaseAddress = 'hC000_0000;
