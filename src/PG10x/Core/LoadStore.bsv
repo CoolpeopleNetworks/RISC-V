@@ -8,10 +8,12 @@ import Exception::*;
 // from memory.
 //
 typedef struct {
+    Word effectiveAddress;      // Data aligned
     Word wordAddress;           // XLEN aligned
+    Bit#(TDiv#(XLEN, 8)) mask;
+    Bit#(TLog#(XLEN)) log2Size;
+
     RegisterIndex rd;
-    Bit#(6) rightShift;         // Number of bits to shift result by 
-    Bit#(TDiv#(XLEN, 8)) mask;  // Mask used isolate requiree destination bits
     Bool signExtend;
 } LoadRequest deriving(Bits, Eq, FShow);
 
@@ -37,10 +39,11 @@ function Result#(LoadRequest, Exception) getLoadRequest(
     Bit#(6) rightShiftBytes = truncate(effectiveAddress - wordAddress);
 
     let loadRequest = LoadRequest {
+        effectiveAddress: effectiveAddress,
         wordAddress: wordAddress,
-        rd: rd,
-        rightShift: rightShiftBytes,
         mask: ?,
+        log2Size: ?,
+        rd: rd,
         signExtend: True
     };
 
@@ -48,11 +51,13 @@ function Result#(LoadRequest, Exception) getLoadRequest(
         // Byte
         pack(LB): begin
             loadRequest.mask = 'b1;
+            loadRequest.log2Size = 0;
             result = tagged Success loadRequest;
         end
 
         pack(LBU): begin
             loadRequest.mask = 'b1;
+            loadRequest.log2Size = 0;
             loadRequest.signExtend = False;
             result = tagged Success loadRequest;
         end
@@ -63,6 +68,7 @@ function Result#(LoadRequest, Exception) getLoadRequest(
                 result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
             end else begin
                 loadRequest.mask = 'b11;
+                loadRequest.log2Size = 1;
                 result = tagged Success loadRequest;
             end
         end
@@ -72,6 +78,7 @@ function Result#(LoadRequest, Exception) getLoadRequest(
                 result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
             end else begin
                 loadRequest.mask = 'b11;
+                loadRequest.log2Size = 1;
                 loadRequest.signExtend = False;
                 result = tagged Success loadRequest;
             end
@@ -83,6 +90,7 @@ function Result#(LoadRequest, Exception) getLoadRequest(
                 result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
             end else begin
                 loadRequest.mask = 'b1111;
+                loadRequest.log2Size = 2;
                 result = tagged Success loadRequest;
             end
         end
@@ -93,6 +101,7 @@ function Result#(LoadRequest, Exception) getLoadRequest(
                 result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
             end else begin
                 loadRequest.mask = 'b1111;
+                loadRequest.log2Size = 2;
                 loadRequest.signExtend = False;
                 result = tagged Success loadRequest;
             end
@@ -103,6 +112,7 @@ function Result#(LoadRequest, Exception) getLoadRequest(
                 result = tagged Error tagged ExceptionCause extend(pack(LOAD_ADDRESS_MISALIGNED));
             end else begin
                 loadRequest.mask = 'b1111_1111;
+                loadRequest.log2Size = 3;
                 result = tagged Success loadRequest;
             end
         end

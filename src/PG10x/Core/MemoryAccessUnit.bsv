@@ -60,7 +60,7 @@ module mkMemoryAccessUnit#(
                         a_size: 1,
                         a_source: 0,
                         a_address: loadRequest.wordAddress,
-                        a_mask: loadRequest.mask,
+                        a_mask: ?,
                         a_data: ?,
                         a_corrupt: False
                     });
@@ -116,13 +116,14 @@ module mkMemoryAccessUnit#(
         // writeback pipeline stage.
         let loadRequest = unJust(executedInstruction.loadRequest);
         Word value = ?;
-        if (loadRequest.rightShift == 0) begin
+        let rightShift = loadRequest.effectiveAddress - loadRequest.wordAddress;
+        if (rightShift == 0) begin
             value = memoryResponse.d_data;
         end else begin
             if (loadRequest.signExtend) begin
-                value = signExtend(memoryResponse.d_data >> loadRequest.rightShift);
+                value = signExtend(memoryResponse.d_data >> rightShift);
             end else begin
-                value = extend(memoryResponse.d_data >> loadRequest.rightShift);
+                value = extend(memoryResponse.d_data >> rightShift);
             end
         end
 

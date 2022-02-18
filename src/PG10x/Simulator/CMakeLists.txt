@@ -4,8 +4,7 @@ add_executable(PG10xSim Simulator.bsv)
 target_link_libraries(PG10xSim 
     PG10xCore::PG10xCore
     RVLib::RVLib
-    PGLib::PGLib
-    RGTiles::RGTiles
+    PGTiles::PGTiles
 )
 
 target_compile_definitions(PG10xSim PUBLIC
@@ -24,8 +23,8 @@ target_compile_definitions(MemorySystem_tb PUBLIC
 )
 target_link_libraries(MemorySystem_tb
     RVLib::RVLib
-    PGLib::PGLib
-    RGTiles::RGTiles
+    PG10xCore::PG10xCore
+    PGTiles::PGTiles
 )
 add_test(
     NAME MemorySystem_tb

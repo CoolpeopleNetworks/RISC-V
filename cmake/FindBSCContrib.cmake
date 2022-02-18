@@ -18,35 +18,45 @@ FetchContent_MakeAvailable(bsc_contrib)
 
 FetchContent_GetProperties(bsc_contrib SOURCE_DIR BSC_CONTRIB_DIR)
 
-# Default libraries
-add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/Bus")
-add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/FPGA/Misc")
+get_filename_component(BSC_CONTRIB_DIR ${BSC_CONTRIB_DIR} DIRECTORY)
+
+add_library(BSCContrib INTERFACE)
+add_library(BSCContrib::BSCContrib ALIAS BSCContrib)
+
+target_include_directories(BSCContrib INTERFACE
+    "${BSC_CONTRIB_DIR}/Libraries/Bus"
+    "${BSC_CONTRIB_DIR}/Libraries/FPGA/Misc"
+)
 
 # Parse components
 foreach(_comp IN LISTS BSCContrib_FIND_COMPONENTS)
     if(_comp STREQUAL "XILINX")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/FPGA/Xilinx")
-    endif()
-
-    if(_comp STREQUAL "ALTERA")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/FPGA/Altera")
-    endif()
-
-    if(_comp STREQUAL "DDR2")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/FPGA/DDR2")
-    endif()
-
-    if(_comp STREQUAL "AMBA_TLM2")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM2/AHB")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM2/Axi")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM2/TLM")
-    endif()
-
-    if(_comp STREQUAL "AMBA_TLM3")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Ahb")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Apb")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Axi")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Axi4")
-        add_bsv_module_dir("${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/TLM3")
+        target_include_directories(BSCContrib INTERFACE
+            "${BSC_CONTRIB_DIR}/Libraries/FPGA/Xilinx"
+        )
+    elseif(_comp STREQUAL "ALTERA")
+        target_include_directories(BSCContrib INTERFACE
+            "${BSC_CONTRIB_DIR}/Libraries/FPGA/Altera"
+        )
+    elseif(_comp STREQUAL "DDR2")
+        target_include_directories(BSCContrib INTERFACE
+            "${BSC_CONTRIB_DIR}/Libraries/FPGA/DDR2"        
+        )
+    elseif(_comp STREQUAL "AMBA_TLM2")
+        target_include_directories(BSCContrib INTERFACE
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM2/AHB"
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM2/Axi"
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM2/TLM"
+        )
+    elseif(_comp STREQUAL "AMBA_TLM3")
+        target_include_directories(BSCContrib INTERFACE
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Ahb"
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Apb"
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Axi"
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/Axi4"
+            "${BSC_CONTRIB_DIR}/Libraries/AMBA_TLM3/TLM3"
+        )
+    else()
+        message(FATAL_ERROR "Unrecognized BSCContrib COMPONENT: ${_comp}")
     endif()
 endforeach()

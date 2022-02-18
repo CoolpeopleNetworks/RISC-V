@@ -9,6 +9,7 @@ import Printf::*;
 typedef enum {
     INIT,
     STORE_REQUEST_TEST,
+    LOAD_REQUEST_TEST,
     COMPLETE
 } State deriving(Bits, Eq, FShow);
 
@@ -24,6 +25,18 @@ typedef struct {
     Word expectedValue;
 } StoreTestCase deriving(Bits, Eq, FShow);
 
+typedef struct {
+    Bool shouldSucceed;
+    RVLoadOperator loadOperator;
+    Word effectiveAddress;
+
+    Maybe#(Exception) expectedException;
+    Word expectedWordAddress;
+    Bit#(TLog#(XLEN)) expectedLog2Size;
+    Bit#(TDiv#(XLEN, 8)) expectedMask;
+    Bool expectedSignExtend;
+} LoadTestCase deriving(Bits, Eq, FShow);
+
 (* synthesize *)
 module mkLoadStore_tb(Empty);
     Reg#(State) state <- mkReg(INIT);
@@ -34,7 +47,7 @@ module mkLoadStore_tb(Empty);
 `else // RV32
     let storeTestCaseCount = 8;
 `endif
-    StoreTestCase testCases[storeTestCaseCount] = {
+    StoreTestCase storeTestCases[storeTestCaseCount] = {
         //
         // Single byte store
         //
@@ -262,12 +275,110 @@ module mkLoadStore_tb(Empty);
 `endif
     };
 
+`ifdef RV64
+    let loadTestCaseCount = 8;
+`else // RV32
+    let loadTestCaseCount = 4;
+`endif
+    LoadTestCase loadTestCases[loadTestCaseCount] = {
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4000,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4001,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4002,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4003,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+`ifdef RV64
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4004,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4005,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4006,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        },
+        LoadTestCase {
+            shouldSucceed: True,
+            loadOperator: pack(LB),
+            effectiveAddress: 'h4007,
+
+            expectedException: tagged Invalid,
+            expectedWordAddress: 'h4000,
+            expectedLog2Size: 0,
+            expectedMask: 'hFF,
+            expectedSignExtend: True
+        }
+`endif
+    };
+
     rule init(state == INIT);
         state <= STORE_REQUEST_TEST;
     endrule
 
     rule store_request_test(state == STORE_REQUEST_TEST);
-        let testCase = testCases[testNumber];
+        let testCase = storeTestCases[testNumber];
 
         let result = getStoreRequest(
             testCase.storeOperator, 
@@ -284,10 +395,37 @@ module mkLoadStore_tb(Empty);
         end
 
         if (testNumber == storeTestCaseCount - 1) begin
-            state <= COMPLETE;
+            state <= LOAD_REQUEST_TEST;
+            testNumber <= 0;
+        end else begin
+            testNumber <= testNumber + 1;
+        end
+    endrule
+
+    rule load_request_test(state == LOAD_REQUEST_TEST);
+        let testCase = loadTestCases[testNumber];
+
+        let result = getLoadRequest(
+            testCase.loadOperator, 
+            1, 
+            testCase.effectiveAddress);
+
+        dynamicAssert(isSuccess(result) == testCase.shouldSucceed, "Request success should be what's expected");
+        if (result matches tagged Success .loadRequest) begin
+            dynamicAssert(loadRequest.wordAddress == testCase.expectedWordAddress, "Request word address incorrect.");
+            dynamicAssert(loadRequest.log2Size == testCase.expectedLog2Size, "Log2Size incorrect.");
+            dynamicAssert(loadRequest.mask == testCase.expectedMask, "Mask incorrect.");
+            dynamicAssert(loadRequest.signExtend == testCase.expectedSignExtend, "Sign extension incorrect.");
+        end else begin
+            dynamicAssert(result.Error == unJust(testCase.expectedException), "Incorrect exception returned");
         end
 
-        testNumber <= testNumber + 1;
+        if (testNumber == loadTestCaseCount - 1) begin
+            state <= COMPLETE;
+            testNumber <= 0;
+        end else begin
+            testNumber <= testNumber + 1;
+        end
     endrule
 
     rule complete(state == COMPLETE);

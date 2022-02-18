@@ -75,7 +75,7 @@ module mkFetchUnit#(
             a_size: 1,
             a_source: 0,
             a_address: fetchProgramCounter,
-            a_mask: 'hF,
+            a_mask: ?,
             a_data: ?,
             a_corrupt: False
         });
